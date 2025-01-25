@@ -1,0 +1,84 @@
+:root {
+    --primary: #fff; /* Default primary color */
+}
+
+/* Base Button Styles */
+.btn {
+    padding: 8px 20px;
+    border-radius: 2px;
+    outline: none;
+    border: none;
+    cursor: pointer;
+}
+
+/* Light Mode Button Styles */
+body.light-mode .btn--primary {
+    background-color: var(--primary);
+    color: #242424; /* Dark text for light mode */
+    border: 1px solid var(--primary);
+}
+
+body.light-mode .btn--outline {
+    background-color: transparent;
+    color: #242424; /* Dark text for outline button in light mode */
+    border: 1px solid var(--primary);
+}
+
+/* Dark Mode Button Styles */
+body.dark-mode .btn--primary {
+    background-color: #444; /* Dark gray for primary button */
+    color: #fff; /* Light text for dark mode */
+    border: 1px solid #444; /* Dark border */
+}
+
+body.dark-mode .btn--outline {
+    background-color: transparent;
+    color: #fff; /* White text for outline button in dark mode */
+    border: 1px solid var(--primary);
+}
+
+/* High Contrast Mode Button Styles */
+body.high-contrast-mode .btn--primary {
+    background-color: #FFD700; /* Gold for high contrast primary */
+    color: #000000; /* Black text */
+    border: 2px solid #FFD700; /* Gold border */
+}
+
+body.high-contrast-mode .btn--outline {
+    background-color: transparent;
+    color: #FFD700; /* Gold text */
+    border: 2px solid #FFD700; /* Gold border */
+}
+
+/* Button Sizes */
+.btn--medium {
+    padding: 8px 20px;
+    font-size: 18px;
+}
+
+.btn--large {
+    padding: 12px 26px;
+    font-size: 20px;
+}
+
+/* Button Hover Effects */
+.btn--large:hover,
+.btn--medium:hover {
+    transition: all 0.3s ease-out;
+    background: #fff; /* White background on hover */
+    color: #242424; /* Dark text on hover */
+}
+
+/* Hover Effects for Dark Mode */
+body.dark-mode .btn--large:hover,
+body.dark-mode .btn--medium:hover {
+    background: #555; /* Darker gray on hover */
+    color: #fff; /* Keep text light on hover */
+}
+
+/* Hover Effects for High Contrast Mode */
+body.high-contrast-mode .btn--large:hover,
+body.high-contrast-mode .btn--medium:hover {
+
+    color: #000000; /* Black text */
+}

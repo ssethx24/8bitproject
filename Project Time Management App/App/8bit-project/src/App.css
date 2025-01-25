@@ -1,0 +1,125 @@
+/* Light Theme Styles */
+body.light-mode {
+    --color-header-footer: #fff;
+    --color-text: #000;
+    --color-background: #f8f8fa;
+}
+
+body.light-mode .navbar {
+    background-color: var(--color-header-footer); /* Header/Footer */
+    color: var(--color-text); /* Text */
+}
+
+body.light-mode .App-header {
+    background-color: var(--color-background); /* Background */
+    color: var(--color-text); /* Text */
+}
+
+/* Dark Theme Styles */
+body.dark-mode {
+    --color-header-footer: #36394c;
+    --color-text: #eff2f7;
+    --color-background: #222736;
+}
+
+body.dark-mode .navbar {
+    background-color: var(--color-header-footer); /* Header/Footer */
+    color: var(--color-text); /* Text */
+}
+
+body.dark-mode .App-header {
+    background-color: var(--color-background); /* Background */
+    color: var(--color-text); /* Text */
+}
+
+/* High Contrast Theme Styles */
+body.high-contrast-mode {
+    --color-header-footer: #000000; /* Black background for header/footer */
+    --color-text: #FFD700; /* Gold text */
+    --color-background: #000000; /* Black background */
+}
+
+body.high-contrast-mode .navbar {
+    background-color: var(--color-header-footer); /* Header/Footer */
+    color: var(--color-text); /* Text */
+}
+
+body.high-contrast-mode .App-header {
+    background-color: var(--color-background); /* Background */
+    color: var(--color-text); /* Text */
+}
+
+body.high-contrast-mode h1 {
+    color: #FFD700; /* Gold color for headings */
+}
+
+body.high-contrast-mode label {
+    color: #FFD700; /* Gold text for labels */
+}
+
+body.high-contrast-mode input[type="text"],
+body.high-contrast-mode input[type="password"] {
+    background-color: #000000; /* Black background for inputs */
+    color: #FFD700; /* Gold text */
+    border: 2px solid #FFD700; /* Gold border */
+}
+
+body.high-contrast-mode input[type="text"]::placeholder,
+body.high-contrast-mode input[type="password"]::placeholder {
+    color: #FFD700; /* Gold placeholder text */
+}
+
+body.high-contrast-mode button {
+    background-color: #FFD700; /* Gold button color */
+    color: #000000; /* Black text */
+    border: 2px solid #FFD700; /* Gold border for emphasis */
+}
+
+body.high-contrast-mode button:hover {
+    background-color: #FFA500; /* Darker gold on hover */
+    color: #000000; /* Black text remains */
+}
+
+body.high-contrast-mode button:active {
+    background-color: #FF8C00; /* Even darker gold on active */
+    color: #000000; /* Black text remains */
+}
+
+/* General Reset for Elements */
+.navbar,
+.App-header {
+    transition: background-color 0.3s, color 0.3s; /* Smooth transitions */
+}
+body.high-contrast-mode .App-header {
+  background-color: #000000; /* Black background for high contrast */
+  color: #ffffff; /* White text for high contrast */
+}
+
+.App-link {
+  color: #61dafb; /* Default link color */
+}
+
+/* Light Mode Link Styles */
+body.light-mode .App-link {
+  color: #007acc; /* Adjusted link color for light mode */
+}
+
+/* Dark Mode Link Styles */
+body.dark-mode .App-link {
+  color: #80d4ff; /* Lighter blue for links in dark mode */
+}
+
+/* High Contrast Mode Link Styles */
+body.high-contrast-mode .App-link {
+  color: #00BFFF; /* Deep Sky Blue for links in high contrast mode */
+}
+
+@keyframes App-logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+

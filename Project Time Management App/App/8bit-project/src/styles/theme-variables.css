@@ -1,0 +1,60 @@
+:root {
+    --primary: #fff; /* Default primary color */
+}
+
+/* Light Theme Styles */
+body.light-mode {
+    --color-header-footer: #fff;
+    --color-text: #000;
+    --color-background: #f8f8fa;
+}
+
+body.light-mode .navbar {
+    background-color: var(--color-header-footer); /* Header/Footer */
+    color: var(--color-text); /* Text */
+}
+
+body.light-mode .App-header {
+    background-color: var(--color-background); /* Background */
+    color: var(--color-text); /* Text */
+}
+
+/* Dark Theme Styles */
+body.dark-mode {
+    --color-header-footer: #36394c;
+    --color-text: #eff2f7;
+    --color-background: #222736;
+}
+
+body.dark-mode .navbar {
+    background-color: var(--color-header-footer); /* Header/Footer */
+    color: var(--color-text); /* Text */
+}
+
+body.dark-mode .App-header {
+    background-color: var(--color-background); /* Background */
+    color: var(--color-text); /* Text */
+}
+
+/* High Contrast Theme Styles */
+body.high-contrast-mode {
+    --color-header-footer: #000000; /* Black background for header/footer */
+    --color-text: #FFD700; /* Gold text */
+    --color-background: #000000; /* Black background */
+}
+
+body.high-contrast-mode .navbar {
+    background-color: var(--color-header-footer); /* Header/Footer */
+    color: var(--color-text); /* Text */
+}
+
+body.high-contrast-mode .App-header {
+    background-color: var(--color-background); /* Background */
+    color: var(--color-text); /* Text */
+}
+
+/* General Reset for Elements */
+.navbar,
+.App-header {
+    transition: background-color 0.3s, color 0.3s; /* Smooth transitions */
+}

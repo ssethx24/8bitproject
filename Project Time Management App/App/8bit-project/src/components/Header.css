@@ -1,0 +1,27 @@
+/* Header.css */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+  background-color: var(--colorHeaderFooter);
+  color: var(--colorText);
+}
+
+.header h1 {
+  margin: 0;
+}
+
+.header button {
+  padding: 10px;
+  background-color: var(--colorBackground);
+  color: var(--colorText);
+  border: none;
+  border-radius: 5px;
+}
+
+.header button:hover {
+  opacity: 0.8;
+}
+

@@ -1,0 +1,64 @@
+/* Apply border-box globally */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+/* Heading Styles */
+h1 {
+    font-family: Verdana, Arial, Helvetica, sans-serif;
+    font-size: 19px;
+    font-weight: bold;
+    margin: 0;
+    padding: 0;
+}
+
+/* Horizontal Rule Styles */
+hr {
+    border: none;
+    border-top: 1px solid #CCCCCC;
+    height: 1px;
+    margin-bottom: 25px;
+}
+
+/* Dolphin Container Styles */
+#dolphincontainer {
+    position: relative;
+    height: 70px;
+    color: #E0E0E0; /* Default text color */
+    background: #143D55; /* Default background color */
+    width: 100%;
+    font-family: Helvetica, Arial, Verdana, sans-serif;
+}
+
+/* Dolphin Navigation Styles */
+#dolphinnav {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+
+#dolphinnav ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+}
+
+#dolphinnav ul li {
+    margin: 0 10px;
+}
+
+#dolphinnav ul li a {
+    color: #E0E0E0; /* Default text color */
+    text-decoration: none;
+    padding: 10px 15px;
+    transition: color 0.3s ease;
+}
+
+#dolphinnav ul li a:hover,
+#dolphinnav ul li a.active {
+    color: #FFFFFF; /* Hover and active text color */
+    background-color: #1E90FF; /* Background color for active/hover */
+    border-radius: 4px;
+}

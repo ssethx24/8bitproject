@@ -1,0 +1,56 @@
+/* Default (Light Mode) */
+.accumulation-chart {
+  background-color: #ffffff; /* White background for light mode */
+  color: #000; /* Dark text */
+}
+
+.accumulation-chart .recharts-cartesian-grid line {
+  stroke: #ccc; /* Light gray grid lines */
+}
+
+.accumulation-chart .recharts-xAxis .recharts-cartesian-axis-line,
+.accumulation-chart .recharts-yAxis .recharts-cartesian-axis-line {
+  stroke: #333; /* Dark axis lines */
+}
+
+.accumulation-chart .recharts-tooltip-label {
+  color: #000; /* Dark text for tooltips */
+}
+
+/* Dark Mode */
+.theme-dark .accumulation-chart {
+  background-color: #1a1a1a; /* Dark background for dark mode */
+  color: #fff; /* Light text */
+}
+
+.theme-dark .accumulation-chart .recharts-cartesian-grid line {
+  stroke: #555; /* Darker gray grid lines */
+}
+
+.theme-dark .accumulation-chart .recharts-xAxis .recharts-cartesian-axis-line,
+.theme-dark .accumulation-chart .recharts-yAxis .recharts-cartesian-axis-line {
+  stroke: #fff; /* Light axis lines */
+}
+
+.theme-dark .accumulation-chart .recharts-tooltip-label {
+  color: #fff; /* Light text for tooltips */
+}
+
+/* High Contrast Mode */
+.theme-high-contrast .accumulation-chart {
+  background-color: #000000; /* Black background for high contrast mode */
+  color: #ffffff; /* White text */
+}
+
+.theme-high-contrast .accumulation-chart .recharts-cartesian-grid line {
+  stroke: #fff; /* White grid lines for high contrast */
+}
+
+.theme-high-contrast .accumulation-chart .recharts-xAxis .recharts-cartesian-axis-line,
+.theme-high-contrast .accumulation-chart .recharts-yAxis .recharts-cartesian-axis-line {
+  stroke: #ffffff; /* White axis lines */
+}
+
+.theme-high-contrast .accumulation-chart .recharts-tooltip-label {
+  color: #ffffff; /* White text for tooltips */
+}

@@ -1,0 +1,182 @@
+/* Home Page Container */
+.homepage-container {
+    padding: 2rem;
+    color: #fff;
+    min-height: 100vh;
+    background-size: 400% 400%;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+}
+
+/* Light Mode Styles */
+body.light-mode .homepage-container {
+    background: linear-gradient(135deg, #f0f0f0 25%, #e0e0e0 100%); /* Light gray gradient */
+    color: #000; /* Dark text */
+}
+
+body.light-mode .sprint-summary,
+body.light-mode .sprint-board {
+    background-color: rgba(255, 255, 255, 0.9); /* Light semi-transparent background */
+}
+
+/* Dark Mode Styles */
+body.dark-mode .homepage-container {
+    background: linear-gradient(135deg, #1a1a1a 25%, #333 100%); /* Black to gray gradient */
+    color: #fff; /* Light text */
+}
+
+body.dark-mode .sprint-summary,
+body.dark-mode .sprint-board {
+    background-color: rgba(0, 0, 0, 0.7); /* Dark semi-transparent background */
+}
+
+/* High Contrast Mode Styles */
+body.high-contrast-mode .homepage-container {
+    background: linear-gradient(135deg, #000000 25%, #333 100%); /* Black to dark gray gradient */
+    color: #ffffff; /* White text */
+}
+
+body.high-contrast-mode .sprint-summary,
+body.high-contrast-mode .sprint-board {
+    background-color: rgba(255, 255, 255, 0.1); /* High contrast background */
+}
+
+/* Logo Section */
+.logo-container {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.logo {
+    width: 150px; /* Adjust size as necessary */
+}
+
+/* Sprint Summary Section */
+.sprint-summary {
+    padding: 2rem;
+    border-radius: 10px;
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+.sprint-summary h1 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+}
+
+/* Sprint Status */
+.sprint-status h2,
+.sprint-progress h3 {
+    font-size: 1.5rem;
+}
+
+.sprint-status p,
+.sprint-progress p {
+    font-size: 1.2rem;
+}
+
+/* Sprint Board Section */
+.sprint-board {
+    padding: 2rem;
+    border-radius: 10px;
+}
+
+/* Sprint Board Heading */
+.sprint-board h2 {
+    font-size: 2rem;
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+/* Task Board */
+.task-board {
+    display: flex;
+    justify-content: space-around;
+}
+
+/* Task Column Styles */
+.task-column {
+    padding: 1rem;
+    width: 30%;
+    border-radius: 10px;
+    text-align: center;
+}
+
+/* Light Mode Task Column Styles */
+body.light-mode .task-column {
+    background-color: rgba(255, 255, 255, 0.1); /* Light mode background */
+}
+
+/* Dark Mode Task Column Styles */
+body.dark-mode .task-column {
+    background-color: rgba(255, 255, 255, 0.1); /* Dark mode background */
+}
+
+/* High Contrast Mode Task Column Styles */
+body.high-contrast-mode .task-column {
+    background-color: rgba(255, 255, 255, 0.2); /* Higher contrast for visibility */
+}
+
+.task-column h3 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.task-column ul {
+    list-style: none;
+    padding: 0;
+}
+
+.task-column li {
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    border-radius: 5px;
+}
+
+/* Task Status Styles */
+.awaiting-action {
+    border: 2px solid #ff6347; /* Tomato color for Awaiting Action */
+}
+
+.in-progress {
+    border: 2px solid #ffa500; /* Orange color for Under Development */
+}
+
+.completed {
+    border: 2px solid #32cd32; /* Lime green color for Completed */
+}
+
+/* Button Styles for Possible Interactions */
+button {
+    background-color: #444;
+    color: #fff;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1rem;
+    margin-top: 1rem;
+}
+
+/* Light Mode Button Styles */
+body.light-mode button {
+    background-color: #4a90e2; /* Light mode button color */
+    color: #fff; /* White text */
+}
+
+/* Button Hover Styles */
+button:hover {
+    background-color: #555;
+}
+
+/* Responsive Design */
+@media screen and (max-width: 768px) {
+    .task-board {
+        flex-direction: column;
+    }
+
+    .task-column {
+        width: 100%;
+        margin-bottom: 1.5rem;
+    }
+}

@@ -1,0 +1,195 @@
+/* Login Page Styles */
+.login-container {
+    width: 350px;
+    margin: 150px auto;
+    padding: 30px;
+    border: 1px solid #444; /* Darker border for consistency */
+    border-radius: 12px;
+    text-align: center;
+    background-color: #1f1f1f; /* Default dark background */
+    color: #fff; /* White text */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.7); /* Slight shadow for depth */
+}
+
+/* Light Mode Styles */
+body.light-mode .login-container {
+    background-color: #ffffff; /* Light background */
+    color: #000; /* Dark text */
+    border: 1px solid #ccc; /* Light border */
+}
+
+/* Dark Mode Styles */
+body.dark-mode .login-container {
+    background-color: #1f1f1f; /* Dark background */
+    color: #fff; /* White text */
+}
+
+/* High Contrast Mode Styles */
+body.high-contrast-mode .login-container {
+    background-color: #000000; /* Black background */
+    color: #FFD700; /* Gold text */
+    border: 2px solid #FFD700; /* Gold border for emphasis */
+}
+
+body.high-contrast-mode .login-container h1 {
+    color: #FFD700; /* Gold color for headings */
+}
+
+body.high-contrast-mode label {
+    color: #FFD700; /* Gold text for labels */
+}
+
+body.high-contrast-mode input[type="text"],
+body.high-contrast-mode input[type="password"] {
+    background-color: #000000; /* Black background for inputs */
+    color: #FFD700; /* Gold text */
+    border: 2px solid #FFD700; /* Gold border */
+}
+
+body.high-contrast-mode input[type="text"]::placeholder,
+body.high-contrast-mode input[type="password"]::placeholder {
+    color: #FFD700; /* Gold placeholder text */
+}
+
+body.high-contrast-mode button {
+    background-color: #FFD700; /* Gold button color */
+    color: #000000; /* Black text */
+    border: 2px solid #FFD700; /* Gold border for emphasis */
+}
+
+body.high-contrast-mode button:hover {
+    background-color: #FFA500; /* Darker gold on hover */
+    color: #000000; /* Black text remains */
+}
+
+body.high-contrast-mode button:active {
+    background-color: #FF8C00; /* Even darker gold on active */
+    color: #000000; /* Black text remains */
+}
+
+body.high-contrast-mode .sprint-info {
+    background-color: #555555; /* Dark gray sprint info background */
+    border: 2px solid #FFD700; /* Gold border for emphasis */
+}
+
+body.high-contrast-mode .sprint-item strong {
+    color: #FFD700; /* Gold for important text */
+}
+
+body.high-contrast-mode .field-group {
+    border: 2px solid #FFD700; /* Gold border for fields */
+}
+
+/* Logo Styles */
+.login-logo {
+    width: 100px; /* Set a suitable width */
+    height: auto; /* Maintain aspect ratio */
+    margin-bottom: 20px; /* Space below the logo */
+}
+
+.login-container h1 {
+    margin-bottom: 1.5rem;
+    font-size: 2rem;
+    color: #f2f2f2; /* Slightly lighter than white for contrast */
+}
+
+/* Label Styles */
+label {
+    display: block;
+    margin: 10px 0 5px;
+    font-weight: bold;
+    color: #b0b0b0; /* Light gray for labels */
+}
+
+/* Input Styles */
+input[type="text"],
+input[type="password"] {
+    width: 100%;
+    padding: 10px;
+    margin: 10px 0;
+    border: 1px solid #555; /* Darker border */
+    border-radius: 5px;
+    background-color: #2b2b2b; /* Darker background for input */
+    color: #fff; /* White text */
+}
+
+/* Light Mode Input Styles */
+body.light-mode input[type="text"],
+body.light-mode input[type="password"] {
+    background-color: #ffffff; /* Light input background */
+    color: #000; /* Dark text */
+    border: 1px solid #ccc; /* Light border */
+}
+
+/* Placeholder Styles */
+input[type="text"]::placeholder,
+input[type="password"]::placeholder {
+    color: #888; /* Light gray placeholder text */
+}
+
+/* Button Styles */
+button {
+    width: 100%;
+    padding: 12px;
+    background-color: #444; /* Dark gray button */
+    color: #fff; /* White text */
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    font-size: 1rem;
+}
+
+/* Light Mode Button Styles */
+body.light-mode button {
+    background-color: #4a90e2; /* Light mode button color */
+    color: #fff; /* White text */
+}
+
+/* Button Hover Styles */
+button:hover {
+    background-color: #555; /* Lighter gray on hover */
+}
+
+/* Button Active Styles */
+button:active {
+    background-color: #777; /* Even lighter gray on active */
+}
+
+/* Error Message Styles */
+p {
+    margin-top: 20px;
+    color: #ff4d4d; /* Red for error messages */
+}
+
+/* Body Background */
+body {
+    background: radial-gradient(circle, #2b2b2b, #1a1a1a); /* Dark radial gradient for aesthetic look */
+    color: #fff; /* Ensure text remains white */
+    font-family: 'Arial', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Light Mode Body Styles */
+body.light-mode {
+    background: radial-gradient(circle, #ffffff, #e0e0e0); /* Light radial gradient */
+    color: #000; /* Dark text */
+}
+
+/* Subtle Styling for Input Focus */
+input[type="text"]:focus,
+input[type="password"]:focus {
+    outline: none;
+    border: 1px solid #777; /* Highlight on focus */
+    background-color: #333;
+}
+
+/* Light Mode Input Focus Styles */
+body.light-mode input[type="text"]:focus,
+body.light-mode input[type="password"]:focus {
+    background-color: #f0f0f0; /* Light background on focus */
+    border: 1px solid #888; /* Highlight border */
+}
