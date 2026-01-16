@@ -27,7 +27,7 @@ function Login({ setIsAuthenticated, setUserRole }) {
 
     try {
       // Send the login request to the backend using Axios
-      const response = await axios.post('http://localhost:5000/login', {
+      const response = await axios.post('/api/login', {
         email: username,   // Send the username (email) as 'email' to the backend
         password: password // Send the password
       });
