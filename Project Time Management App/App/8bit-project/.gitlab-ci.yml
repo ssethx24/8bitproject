@@ -1,0 +1,32 @@
+# Use the official Node.js image
+image: node:16
+
+# Define caching to speed up builds
+cache:
+  paths:
+    - node_modules/
+
+# Define stages
+stages:
+  - build
+  - deploy
+
+# Build stage
+build:
+  stage: build
+  script:
+    - npm install   # Install dependencies
+    - npm run build # Build the project (if using React or similar)
+  artifacts:
+    paths:
+      - build/      # Output the build folder (adjust if your project has a different output)
+
+# Deploy stage (GitLab Pages)
+pages:
+  stage: deploy
+  script:
+    - cp -r build/ public/  # Move build files to public (adjust folder names if needed)
+  artifacts:
+    paths:
+      - public
+
