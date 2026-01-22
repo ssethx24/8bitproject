@@ -1,92 +1,90 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios'; // Importing Axios for making HTTP requests
-import './Login.css'; // Importing CSS for styling the login page
+import './Login.css';
+import { api } from "../api";
 
 /**
  * @file Login.js
- * @description This file contains the `Login` component, which handles the user login functionality.
- * The component allows users to input their credentials (username and password), sends the credentials
- * to the backend via an HTTP POST request using Axios, and handles authentication. If the login is
- * successful, the user's authentication status and role are stored in local storage, and they are
- * redirected to the home page or dashboard.
- * 
- * @author Team 8
- * @version 1.0
- * @date 2024-10-15
+ * @description Login component
  */
 function Login({ setIsAuthenticated, setUserRole }) {
-  // State to handle input fields and error messages
-  const [username, setUsername] = useState(''); // Username (email) input state
-  const [password, setPassword] = useState(''); // Password input state
-  const [errorMessage, setErrorMessage] = useState(''); // Error message state for failed login attempts
-  const navigate = useNavigate(); // Hook for redirecting to another page
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const navigate = useNavigate();
 
   const handleSubmit = async (event) => {
-    event.preventDefault(); // Prevent page reload on form submission
+    event.preventDefault();
+    setErrorMessage(''); // clear old error
 
     try {
-      // Send the login request to the backend using Axios
-      const response = await axios.post('/api/login', {
-        email: username,   // Send the username (email) as 'email' to the backend
-        password: password // Send the password
+      const response = await api.post('/api/login', {
+        email: username.trim(),
+        password: password
       });
 
-      // Handle the response from the backend
-      if (response.status === 200) {
-        const { role } = response.data; // Extract user role from response
-        // Store authentication and role information in local storage
-        localStorage.setItem('authenticated', 'true');
-        localStorage.setItem('role', role);
-        setIsAuthenticated(true); // Update authentication state
-        setUserRole(role); // Set user role state
+      // success
+      const { role } = response.data;
+      localStorage.setItem('authenticated', 'true');
+      localStorage.setItem('role', role);
+      setIsAuthenticated(true);
+      setUserRole(role);
 
-        // Redirect to home page or dashboard based on the authentication
-        navigate('/');
-      }
+      navigate('/'); // with HashRouter this becomes #/
     } catch (error) {
-      // If there's an error (e.g., invalid credentials), display an error message
-      setErrorMessage('Invalid credentials, please try again.');
+      // ✅ show real reason instead of always "invalid credentials"
+      const status = error?.response?.status;
+      const backendMsg = error?.response?.data?.message;
+
+      if (status === 401) {
+        setErrorMessage('Invalid credentials, please try again.');
+      } else if (status) {
+        setErrorMessage(`Login failed (HTTP ${status}): ${backendMsg || 'Server error'}`);
+      } else {
+        // network/CORS/etc.
+        setErrorMessage(`Login failed: ${error?.message || 'Network/CORS error'}`);
+      }
+
+      console.error("Login error:", error);
     }
   };
 
   return (
     <div className="login-container">
-      {/* Add a logo to the login page */}
-      <img src="/8bit.jpg" alt="Logo" className="login-logo" />
-      
-      {/* Login form */}
+      <img
+        src={`${process.env.PUBLIC_URL}/8bit.jpg`}
+        alt="Logo"
+        className="login-logo"
+      />
+
       <h2>Login</h2>
+
       <form onSubmit={handleSubmit}>
-        {/* Username (email) input */}
         <label>
           Username:
           <input
             type="text"
             value={username}
-            onChange={(e) => setUsername(e.target.value)} // Update username state on input change
-            placeholder="Enter your email" // Placeholder text
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Enter your email"
           />
         </label>
         <br />
-        
-        {/* Password input */}
+
         <label>
           Password:
           <input
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)} // Update password state on input change
-            placeholder="Enter your password" // Placeholder text
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Enter your password"
           />
         </label>
         <br />
-        
-        {/* Submit button */}
+
         <button type="submit">Login</button>
       </form>
-      
-      {/* Display error message if login fails */}
+
       {errorMessage && <p className="error-message">{errorMessage}</p>}
     </div>
   );
