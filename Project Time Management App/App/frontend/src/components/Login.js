@@ -11,7 +11,7 @@ import './Login.css'; // Importing CSS for styling the login page
  * successful, the user's authentication status and role are stored in local storage, and they are
  * redirected to the home page or dashboard.
  * 
- * @author Team 8
+ * @author Shaurya Seth
  * @version 1.0
  * @date 2024-10-15
  */
@@ -53,8 +53,12 @@ function Login({ setIsAuthenticated, setUserRole }) {
   return (
     <div className="login-container">
       {/* Add a logo to the login page */}
-      <img src="/8bit.jpg" alt="Logo" className="login-logo" />
-      
+      <img
+        src={`${process.env.PUBLIC_URL}/8bit.jpg`}
+        alt="Logo"
+        className="login-logo"
+      />
+
       {/* Login form */}
       <h2>Login</h2>
       <form onSubmit={handleSubmit}>
@@ -69,7 +73,7 @@ function Login({ setIsAuthenticated, setUserRole }) {
           />
         </label>
         <br />
-        
+
         {/* Password input */}
         <label>
           Password:
@@ -81,11 +85,11 @@ function Login({ setIsAuthenticated, setUserRole }) {
           />
         </label>
         <br />
-        
+
         {/* Submit button */}
         <button type="submit">Login</button>
       </form>
-      
+
       {/* Display error message if login fails */}
       {errorMessage && <p className="error-message">{errorMessage}</p>}
     </div>
