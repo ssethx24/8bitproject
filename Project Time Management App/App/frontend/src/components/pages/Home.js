@@ -41,7 +41,11 @@ function HomePage() {
     <div className={`homepage-container theme-${theme}`}> {/* Apply theme class */}
       {/* Logo Section */}
       <div className="logo-container">
-        <img src="/8bit.jpg" alt="Logo" className="logo" />
+<img
+  src={`${process.env.PUBLIC_URL}/8bit.jpg`}
+  alt="Logo"
+  className="logo"
+/>
       </div>
 
       {/* Sprint Summary Section */}
