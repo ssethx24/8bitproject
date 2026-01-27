@@ -58,8 +58,13 @@ class Task(db.Model):
     status = db.Column(db.String(50), default="Awaiting Action")
     assigned_to = db.Column(db.String(255), nullable=True)  # developer email/name
     time_spent = db.Column(db.Float, default=0)
-    sprint = db.Column(db.String(50), default="Backlog")  # Backlog, Sprint1, Sprint2, Sprint3
+    sprint = db.Column(db.String(50), default="Backlog")  # Backlog, Sprint 1, Sprint 2, Sprint 3
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # ✅ NEW (needed for Sprint pages)
+    estimated_time = db.Column(db.String(50), nullable=True)
+    completion_time = db.Column(db.String(50), nullable=True)
+    completion_date = db.Column(db.String(50), nullable=True)  # store YYYY-MM-DD
 
     def to_dict(self):
         return {
@@ -70,6 +75,11 @@ class Task(db.Model):
             "assignedTo": self.assigned_to,
             "timeSpent": self.time_spent,
             "sprint": self.sprint,
+
+            # ✅ NEW fields returned to frontend
+            "estimatedTime": self.estimated_time,
+            "completionTime": self.completion_time,
+            "completionDate": self.completion_date,
         }
 
 # -------------------------
@@ -189,7 +199,12 @@ def create_task():
         status=data.get("status", "Awaiting Action"),
         assigned_to=data.get("assignedTo"),  # developer
         time_spent=float(data.get("timeSpent", 0) or 0),
-        sprint=data.get("sprint", "Backlog")
+        sprint=data.get("sprint", "Backlog"),
+
+        # ✅ NEW accept sprint fields
+        estimated_time=data.get("estimatedTime"),
+        completion_time=data.get("completionTime"),
+        completion_date=data.get("completionDate"),
     )
 
     db.session.add(task)
@@ -217,6 +232,14 @@ def update_task(task_id):
         task.time_spent = float(data["timeSpent"] or 0)
     if "sprint" in data:
         task.sprint = data["sprint"]
+
+    # ✅ NEW update sprint fields
+    if "estimatedTime" in data:
+        task.estimated_time = data["estimatedTime"]
+    if "completionTime" in data:
+        task.completion_time = data["completionTime"]
+    if "completionDate" in data:
+        task.completion_date = data["completionDate"]
 
     db.session.commit()
     return jsonify(task.to_dict()), 200

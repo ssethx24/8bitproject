@@ -2,18 +2,14 @@
 
 import React, { useState, useEffect, useContext } from 'react';
 import ProductBacklog from './ProductBacklog';
-import DeleteItem from './DeleteItem'; // Ensure this component exists
 import './SprintPage.css';
 import { ThemeContext } from '../../contexts/theme-context';
-import BurndownChart from './BurndownChart'; // Ensure this component exists
-// Uncomment if using react-datepicker
-// import DatePicker from 'react-datepicker';
-// import 'react-datepicker/dist/react-datepicker.css';
+import { api } from "../../api";
 
 const Sprint1 = () => {
   const { theme } = useContext(ThemeContext);
 
-  // State for sprints
+  // State for sprints (keep localStorage for sprint metadata)
   const [sprints, setSprints] = useState(() => {
     const savedSprints = localStorage.getItem('sprints');
     return savedSprints ? JSON.parse(savedSprints) : [];
@@ -21,23 +17,14 @@ const Sprint1 = () => {
 
   // State for current sprint details
   const [currentSprint, setCurrentSprint] = useState({
-    name: '',
+    name: 'Sprint 1',
     startDate: '',
     endDate: '',
     progress: 'Not Started',
   });
 
-  // State for sprint backlog items
-  const [sprintBacklog, setSprintBacklog] = useState(() => {
-    const savedSprintBacklog = localStorage.getItem('sprintBacklog');
-    return savedSprintBacklog ? JSON.parse(savedSprintBacklog) : [];
-  });
-
-  // State for product backlog items
-  const [productBacklog, setProductBacklog] = useState(() => {
-    const savedItems = localStorage.getItem('backlogItems');
-    return savedItems ? JSON.parse(savedItems) : [];
-  });
+  // Sprint backlog items FROM DB
+  const [sprintBacklog, setSprintBacklog] = useState([]);
 
   // Editing states
   const [isEditing, setIsEditing] = useState(false);
@@ -50,78 +37,63 @@ const Sprint1 = () => {
   // Sorting states for backlog
   const [backlogSortCriteria, setBacklogSortCriteria] = useState('title');
   const [backlogSortOrder, setBacklogSortOrder] = useState('asc');
-  const [backlogSortDeveloperOrder, setBacklogSortDeveloperOrder] = useState('asc'); // For developer sorting
+  const [backlogSortDeveloperOrder, setBacklogSortDeveloperOrder] = useState('asc');
 
   // Error states for time inputs
   const [estimatedTimeError, setEstimatedTimeError] = useState('');
   const [completionTimeError, setCompletionTimeError] = useState('');
-  const [completionDateError, setCompletionDateError] = useState('');
 
-  // Effect to update localStorage when sprints change
+  // Save sprint metadata to local storage
   useEffect(() => {
     localStorage.setItem('sprints', JSON.stringify(sprints));
   }, [sprints]);
 
-  // Effect to update localStorage when sprintBacklog changes
+  // ✅ Load Sprint 1 tasks from DB
   useEffect(() => {
-    localStorage.setItem('sprintBacklog', JSON.stringify(sprintBacklog));
-  }, [sprintBacklog]);
+    fetchSprintTasks();
+  }, [currentSprint.name]);
 
-  // Effect to update localStorage when productBacklog changes
-  useEffect(() => {
-    localStorage.setItem('backlogItems', JSON.stringify(productBacklog));
-  }, [productBacklog]);
-
-  // Utility function to parse time strings to hours
-  const parseTimeToHours = (timeStr) => {
-    const regex = /^(\d+)w\s*(\d+)d\s*(\d+)h\s*(\d+)m$/;
-    const matches = timeStr.match(regex);
-
-    if (!matches) return 0;
-
-    const weeks = parseInt(matches[1], 10) || 0;
-    const days = parseInt(matches[2], 10) || 0;
-    const hours = parseInt(matches[3], 10) || 0;
-    const minutes = parseInt(matches[4], 10) || 0;
-
-    return weeks * 40 + days * 8 + hours + minutes / 60; // Assuming 1 week = 40 hours, 1 day = 8 hours
+  const fetchSprintTasks = async () => {
+    try {
+      if (!currentSprint.name) return;
+      const res = await api.get('/api/tasks', { params: { sprint: currentSprint.name } });
+      setSprintBacklog(res.data || []);
+    } catch (err) {
+      console.error("Failed to load sprint tasks:", err);
+      alert("Failed to load sprint tasks. Check backend.");
+    }
   };
 
-  // Handler for sprint field changes
+  // Utility function
   const handleFieldChange = (field, value) => {
     const updatedSprint = { ...currentSprint, [field]: value };
     setCurrentSprint(updatedSprint);
   };
 
-  // Handler to save or update sprint
+  // Save/update sprint metadata (still local)
   const handleSaveSprint = () => {
-    // Validate sprint name
     if (!currentSprint.name) {
       alert('Sprint name is required.');
       return;
     }
 
-    // Check if sprint name is allowed
     const allowedSprintNames = ['Sprint 1', 'Sprint 2', 'Sprint 3'];
     if (!allowedSprintNames.includes(currentSprint.name)) {
       alert('Invalid sprint name. Please select one from the available options.');
       return;
     }
 
-    // Check if sprint name is already used (only when not editing)
+    if (currentSprint.startDate && currentSprint.endDate && new Date(currentSprint.startDate) > new Date(currentSprint.endDate)) {
+      alert('Start date cannot be after the end date.');
+      return;
+    }
+
     const isNameUsed = sprints.some((sprint) => sprint.name === currentSprint.name);
     if (isNameUsed && !isEditing) {
-      alert('This sprint name has already been used. Please choose a different name.');
+      alert('This sprint name has already been used.');
       return;
     }
 
-    // Validate start and end dates
-    if (currentSprint.startDate && currentSprint.endDate && new Date(currentSprint.startDate) > new Date(currentSprint.endDate)) {
-      alert('Start date cannot be after the end date. Please adjust the dates.');
-      return;
-    }
-
-    // Save or update sprint
     if (isEditing) {
       const updatedSprints = sprints.map((sprint) =>
         sprint.name === currentSprint.name ? currentSprint : sprint
@@ -131,131 +103,89 @@ const Sprint1 = () => {
       setSprints([...sprints, currentSprint]);
     }
 
-    // Reset editing state and current sprint
     setIsEditing(false);
-    setCurrentSprint({
-      name: '',
-      startDate: '',
-      endDate: '',
-      progress: 'Not Started',
-    });
   };
 
-  // Handler for changing task status
-  const handleStatusChange = (id, newStatus) => {
-    const updatedItems = sprintBacklog.map((item) => {
-      if (item.id === id) {
-        if (newStatus === 'Completed') {
-          // Find the current sprint details
-          const sprint = sprints.find((sprint) => sprint.name === currentSprint.name);
-          if (!sprint) {
-            alert('Please ensure the sprint details are correctly set.');
-            return item;
-          }
+  // ✅ Update task helper (DB)
+  const updateTask = async (taskId, patch) => {
+    try {
+      await api.put(`/api/tasks/${taskId}`, patch);
+      await fetchSprintTasks();
+    } catch (err) {
+      console.error("Failed to update task:", err);
+      alert("Failed to update task. Check backend.");
+    }
+  };
 
-          // Optional: Use a date picker component instead of prompt for better UX
-          // Here, we'll use a prompt for simplicity
-          let completionDate = prompt('Enter completion date (YYYY-MM-DD):');
-
-          if (completionDate) {
-            const date = new Date(completionDate);
-            const start = new Date(sprint.startDate);
-            const end = new Date(sprint.endDate);
-
-            if (isNaN(date.getTime())) {
-              alert('Invalid date format.');
-              return item;
-            }
-
-            if (date < start || date > end) {
-              alert('Completion date must be within the sprint start and end dates.');
-              return item;
-            }
-
-            return {
-              ...item,
-              status: newStatus,
-              completed: true,
-              completionDate: completionDate,
-            };
-          } else {
-            alert('Completion date is required.');
-            return item;
-          }
-        } else {
-          return {
-            ...item,
-            status: newStatus,
-            completed: newStatus === 'Completed',
-            completionDate: newStatus === 'Completed' ? new Date().toISOString().split('T')[0] : '',
-          };
-        }
+  // ✅ Status change -> DB
+  const handleStatusChange = async (id, newStatus) => {
+    if (newStatus === 'Completed') {
+      const sprint = sprints.find((s) => s.name === currentSprint.name);
+      if (!sprint || !sprint.startDate || !sprint.endDate) {
+        alert('Please set sprint start/end dates first.');
+        return;
       }
-      return item;
-    });
-    setSprintBacklog(updatedItems);
-  };
 
-  // Handler to move a task back to the product backlog
-  const handleMoveBackToProductBacklog = (item) => {
-    if (!productBacklog.some((backlogItem) => backlogItem.id === item.id)) {
-      const originalItem = { ...item };
-      originalItem.status = 'Awaiting Action'; // Reset status
-      originalItem.completionDate = ''; // Reset completion date
-      setProductBacklog([...productBacklog, originalItem]);
-    }
+      let completionDate = prompt('Enter completion date (YYYY-MM-DD):');
+      if (!completionDate) {
+        alert('Completion date is required.');
+        return;
+      }
 
-    const updatedSprintBacklog = sprintBacklog.filter((task) => task.id !== item.id);
-    setSprintBacklog(updatedSprintBacklog);
-  };
+      const date = new Date(completionDate);
+      const start = new Date(sprint.startDate);
+      const end = new Date(sprint.endDate);
 
-  // Handler to add a task to the sprint backlog
-  const handleAddToSprintBacklog = (item, sprintName) => {
-    if (!sprintBacklog.some((backlogItem) => backlogItem.id === item.id)) {
-      const newSprintBacklogItem = {
-        ...item,
-        sprint: sprintName,
-        status: 'Awaiting Action',
-        estimatedTime: '', // Initialize estimated time
-        completionTime: '', // Initialize completion time
-        completionDate: '', // Initialize completion date
-      };
-      setSprintBacklog([...sprintBacklog, newSprintBacklogItem]);
+      if (isNaN(date.getTime())) {
+        alert('Invalid date format.');
+        return;
+      }
+      if (date < start || date > end) {
+        alert('Completion date must be within the sprint start and end dates.');
+        return;
+      }
 
-      const updatedProductBacklog = productBacklog.filter((backlogItem) => backlogItem.id !== item.id);
-      setProductBacklog(updatedProductBacklog);
-    }
-  };
-
-  // Handler to edit a sprint
-  const handleEditSprint = (sprintName) => {
-    const sprintToEdit = sprints.find((sprint) => sprint.name === sprintName);
-    setCurrentSprint(sprintToEdit);
-    setIsEditing(true);
-  };
-
-  // Handler to delete a sprint
-  const handleDeleteSprint = (sprintName) => {
-    const updatedSprints = sprints.filter((sprint) => sprint.name !== sprintName);
-    setSprints(updatedSprints);
-
-    if (currentSprint.name === sprintName) {
-      setCurrentSprint({
-        name: '',
-        startDate: '',
-        endDate: '',
-        progress: 'Not Started',
+      await updateTask(id, {
+        status: 'Completed',
+        completionDate,
       });
+      return;
     }
+
+    await updateTask(id, {
+      status: newStatus,
+      completionDate: '',
+      completionTime: '',
+    });
   };
 
-  // Handler to toggle backlog editing mode
+  // ✅ Move task back to Product Backlog (DB)
+  const handleMoveBackToProductBacklog = async (item) => {
+    await updateTask(item.id, {
+      sprint: "Backlog",
+      status: "Awaiting Action",
+      completionDate: "",
+      completionTime: "",
+      estimatedTime: item.estimatedTime || "",
+    });
+  };
+
+  // Called when ProductBacklog “Add to Sprint” is clicked
+  // ✅ just ensure DB sprint set correctly
+  const handleAddToSprintBacklog = async (item, sprintName) => {
+    await updateTask(item.id, {
+      sprint: sprintName,
+      status: "Awaiting Action",
+      completionDate: "",
+      completionTime: "",
+      estimatedTime: item.estimatedTime || "",
+    });
+  };
+
+  // Toggle backlog editing (no longer localStorage save)
   const toggleBacklogEditing = () => {
-    if (isBacklogEditing) {
-      localStorage.setItem('sprintBacklog', JSON.stringify(sprintBacklog));
-      alert('Sprint backlog has been saved!');
-    }
     setIsBacklogEditing(!isBacklogEditing);
+    if (isBacklogEditing) alert('Sprint backlog saved to database!');
   };
 
   // Validation for time inputs
@@ -263,21 +193,15 @@ const Sprint1 = () => {
 
   const validateTimeFormat = (time, isCompletion = false) => {
     if (!timeFormatRegex.test(time)) {
-      if (isCompletion) {
-        setCompletionTimeError('Invalid format! Use format: 2w 4d 6h 45m');
-      } else {
-        setEstimatedTimeError('Invalid format! Use format: 2w 4d 6h 45m');
-      }
+      if (isCompletion) setCompletionTimeError('Invalid format! Use format: 2w 4d 6h 45m');
+      else setEstimatedTimeError('Invalid format! Use format: 2w 4d 6h 45m');
     } else {
-      if (isCompletion) {
-        setCompletionTimeError('');
-      } else {
-        setEstimatedTimeError('');
-      }
+      if (isCompletion) setCompletionTimeError('');
+      else setEstimatedTimeError('');
     }
   };
 
-  // Sorting functions
+  // Sorting
   const sortSprints = (sprintsList) => {
     return [...sprintsList].sort((a, b) => {
       if (sprintSortCriteria === 'name') {
@@ -290,31 +214,27 @@ const Sprint1 = () => {
         return sprintSortOrder === 'asc'
           ? new Date(a.endDate) - new Date(b.endDate)
           : new Date(b.endDate) - new Date(a.endDate);
-      } else {
-        return 0;
       }
+      return 0;
     });
   };
 
   const sortBacklog = (backlog) => {
     return [...backlog].sort((a, b) => {
-      if (backlogSortCriteria === 'title') {
-        return backlogSortOrder === 'asc' ? a.title.localeCompare(b.title) : b.title.localeCompare(a.title);
-      } else if (backlogSortCriteria === 'priority') {
-        return backlogSortOrder === 'asc' ? a.priority.localeCompare(b.priority) : b.priority.localeCompare(a.priority);
-      } else if (backlogSortCriteria === 'status') {
-        return backlogSortOrder === 'asc' ? a.status.localeCompare(b.status) : b.status.localeCompare(a.status);
-      } else if (backlogSortCriteria === 'developer') {
-        return backlogSortDeveloperOrder === 'asc' ? a.developer.localeCompare(b.developer) : b.developer.localeCompare(a.developer);
-      } else {
-        return 0;
+      if (backlogSortCriteria === 'developer') {
+        const da = (a.assignedTo || '').toLowerCase();
+        const dbb = (b.assignedTo || '').toLowerCase();
+        return backlogSortDeveloperOrder === 'asc' ? da.localeCompare(dbb) : dbb.localeCompare(da);
       }
+
+      const va = (a[backlogSortCriteria] || '').toString();
+      const vb = (b[backlogSortCriteria] || '').toString();
+      return backlogSortOrder === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
     });
   };
 
   const sortedSprints = sortSprints(sprints);
-  const filteredSprintBacklog = sprintBacklog.filter(item => item.sprint === currentSprint.name);
-  const sortedSprintBacklog = sortBacklog(filteredSprintBacklog);
+  const sortedSprintBacklog = sortBacklog(sprintBacklog);
 
   return (
     <div className={`sprint-page theme-${theme}`}>
@@ -330,11 +250,7 @@ const Sprint1 = () => {
           >
             <option value="">-- Select Sprint Name --</option>
             {['Sprint 1', 'Sprint 2', 'Sprint 3'].map((name) => (
-              <option
-                key={name}
-                value={name}
-                disabled={sprints.some(sprint => sprint.name === name && sprint.progress === 'Completed')}
-              >
+              <option key={name} value={name}>
                 {name}
               </option>
             ))}
@@ -343,38 +259,20 @@ const Sprint1 = () => {
 
         <div className="field-group">
           <label>Start Date: </label>
-          {/* Optional: Use DatePicker for better UX */}
           <input
             type="date"
             value={currentSprint.startDate}
             onChange={(e) => handleFieldChange('startDate', e.target.value)}
           />
-          {/*
-          // If using react-datepicker, uncomment and use the DatePicker component
-          <DatePicker
-            selected={currentSprint.startDate ? new Date(currentSprint.startDate) : null}
-            onChange={(date) => handleFieldChange('startDate', date.toISOString().split('T')[0])}
-            dateFormat="yyyy-MM-dd"
-          />
-          */}
         </div>
 
         <div className="field-group">
           <label>End Date: </label>
-          {/* Optional: Use DatePicker for better UX */}
           <input
             type="date"
             value={currentSprint.endDate}
             onChange={(e) => handleFieldChange('endDate', e.target.value)}
           />
-          {/*
-          // If using react-datepicker, uncomment and use the DatePicker component
-          <DatePicker
-            selected={currentSprint.endDate ? new Date(currentSprint.endDate) : null}
-            onChange={(date) => handleFieldChange('endDate', date.toISOString().split('T')[0])}
-            dateFormat="yyyy-MM-dd"
-          />
-          */}
         </div>
 
         <div className="field-group">
@@ -398,7 +296,6 @@ const Sprint1 = () => {
       <div className="sprint-list">
         <h2>Sprints</h2>
 
-        {/* Sorting Controls for Sprints */}
         <div className="sort-controls">
           <label htmlFor="sprint-sort-criteria">Sort by:</label>
           <select
@@ -432,13 +329,6 @@ const Sprint1 = () => {
                 <div><strong>Start Date:</strong> {sprint.startDate}</div>
                 <div><strong>End Date:</strong> {sprint.endDate}</div>
                 <div><strong>Progress:</strong> {sprint.progress}</div>
-                {/* Only show Edit and Delete buttons for "Sprint 1" */}
-                {sprint.name === 'Sprint 1' && (
-                  <>
-                    <button onClick={() => handleEditSprint(sprint.name)}>Edit</button>
-                    <button onClick={() => handleDeleteSprint(sprint.name)}>Delete</button>
-                  </>
-                )}
               </li>
             ))}
           </ul>
@@ -449,7 +339,6 @@ const Sprint1 = () => {
       <div className="backlog-section">
         <h2>Sprint Backlog for {currentSprint.name || 'Select a Sprint'}</h2>
 
-        {/* Sorting Controls for Backlog */}
         <div className="sort-controls">
           <label htmlFor="backlog-sort-criteria">Sort by:</label>
           <select
@@ -460,7 +349,7 @@ const Sprint1 = () => {
             <option value="title">Title</option>
             <option value="priority">Priority</option>
             <option value="status">Status</option>
-            <option value="developer">Developer</option> {/* Added sorting by developer */}
+            <option value="developer">Developer</option>
           </select>
 
           <label htmlFor="backlog-sort-order">Order:</label>
@@ -473,7 +362,6 @@ const Sprint1 = () => {
             <option value="desc">Descending</option>
           </select>
 
-          {/* Additional Sorting for Developer */}
           <label htmlFor="backlog-sort-developer-order">Developer Order:</label>
           <select
             id="backlog-sort-developer-order"
@@ -485,7 +373,7 @@ const Sprint1 = () => {
           </select>
         </div>
 
-        {filteredSprintBacklog.length === 0 ? (
+        {sortedSprintBacklog.length === 0 ? (
           <p>No items in sprint backlog</p>
         ) : (
           <table className="backlog-table">
@@ -497,29 +385,20 @@ const Sprint1 = () => {
                 <th>Developer</th>
                 <th>Estimated Time</th>
                 <th>Completion Time</th>
-                <th>Completion Date</th> {/* New Column */}
+                <th>Completion Date</th>
                 <th>Actions</th>
               </tr>
             </thead>
+
             <tbody>
               {sortedSprintBacklog.map((item) => (
-                <tr
-                  key={item.id}
-                  className={
-                    item.status === 'Awaiting Action'
-                      ? 'awaiting-action'
-                      : item.status === 'Under Development'
-                      ? 'in-progress'
-                      : item.status === 'Completed'
-                      ? 'completed'
-                      : ''
-                  }
-                >
+                <tr key={item.id}>
                   <td>{item.title}</td>
                   <td>{item.priority}</td>
+
                   <td>
                     <select
-                      value={item.completed ? 'Completed' : item.status}
+                      value={item.status}
                       onChange={(e) => handleStatusChange(item.id, e.target.value)}
                     >
                       <option value="Awaiting Action">Awaiting Action</option>
@@ -527,7 +406,9 @@ const Sprint1 = () => {
                       <option value="Completed">Completed</option>
                     </select>
                   </td>
-                  <td>{item.developer}</td>
+
+                  <td>{item.assignedTo || '--'}</td>
+
                   <td>
                     {item.status === 'Awaiting Action' && (
                       <>
@@ -535,20 +416,16 @@ const Sprint1 = () => {
                           type="text"
                           placeholder="2w 4d 6h 45m"
                           value={item.estimatedTime || ''}
-                          onChange={(e) => {
-                            const updatedItem = { ...item, estimatedTime: e.target.value };
-                            validateTimeFormat(e.target.value); // Validate input
-                            setSprintBacklog((prev) =>
-                              prev.map((backlogItem) =>
-                                backlogItem.id === item.id ? updatedItem : backlogItem
-                              )
-                            );
+                          onChange={async (e) => {
+                            validateTimeFormat(e.target.value);
+                            await updateTask(item.id, { estimatedTime: e.target.value });
                           }}
                         />
                         {estimatedTimeError && <span className="error-message">{estimatedTimeError}</span>}
                       </>
                     )}
                   </td>
+
                   <td>
                     {item.status === 'Completed' && (
                       <>
@@ -556,29 +433,19 @@ const Sprint1 = () => {
                           type="text"
                           placeholder="2w 4d 6h 45m"
                           value={item.completionTime || ''}
-                          onChange={(e) => {
-                            const updatedItem = { ...item, completionTime: e.target.value };
-                            validateTimeFormat(e.target.value, true); // Validate input for completion
-                            setSprintBacklog((prev) =>
-                              prev.map((backlogItem) =>
-                                backlogItem.id === item.id ? updatedItem : backlogItem
-                              )
-                            );
+                          onChange={async (e) => {
+                            validateTimeFormat(e.target.value, true);
+                            await updateTask(item.id, { completionTime: e.target.value });
                           }}
                         />
                         {completionTimeError && <span className="error-message">{completionTimeError}</span>}
                       </>
                     )}
                   </td>
+
+                  <td>{item.status === 'Completed' ? (item.completionDate || '--') : '--'}</td>
+
                   <td>
-                    {item.status === 'Completed' ? (
-                      item.completionDate
-                    ) : (
-                      '--'
-                    )}
-                  </td>
-                  <td>
-                    {/* Show Move to PB button only if status is "Awaiting Action" */}
                     {item.status === 'Awaiting Action' && (
                       <button onClick={() => handleMoveBackToProductBacklog(item)}>
                         Move to Product Backlog
@@ -601,8 +468,6 @@ const Sprint1 = () => {
         sprints={sprints}
         onAddToSprintBacklog={handleAddToSprintBacklog}
       />
-
-
     </div>
   );
 };
