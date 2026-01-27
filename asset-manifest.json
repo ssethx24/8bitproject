@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/8bitproject/static/css/main.5cfaecfe.css",
-    "main.js": "/8bitproject/static/js/main.e70bb5af.js",
+    "main.js": "/8bitproject/static/js/main.81c61bbc.js",
     "static/js/453.7d05ed1a.chunk.js": "/8bitproject/static/js/453.7d05ed1a.chunk.js",
     "index.html": "/8bitproject/index.html",
     "main.5cfaecfe.css.map": "/8bitproject/static/css/main.5cfaecfe.css.map",
-    "main.e70bb5af.js.map": "/8bitproject/static/js/main.e70bb5af.js.map",
+    "main.81c61bbc.js.map": "/8bitproject/static/js/main.81c61bbc.js.map",
     "453.7d05ed1a.chunk.js.map": "/8bitproject/static/js/453.7d05ed1a.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.5cfaecfe.css",
-    "static/js/main.e70bb5af.js"
+    "static/js/main.81c61bbc.js"
   ]
 }
