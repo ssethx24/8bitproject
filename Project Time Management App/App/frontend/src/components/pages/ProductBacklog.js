@@ -1,43 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { v4 as uuidv4 } from 'uuid'; // Import UUID
+import { v4 as uuidv4 } from 'uuid';
 import AddItem from './AddItem';
 import DeleteItem from './DeleteItem';
 import './ProductBacklog.css';
-
-/**
- * @file ProductBacklog.js
- * @description This component manages the product backlog for a project. It allows users 
- * to add, edit, delete, and sort backlog items. Each item has attributes such as title, 
- * priority, developer, and status. The component also supports transferring items to a 
- * selected sprint backlog and saving the backlog state to local storage.
- * 
- * @component
- * @param {Array} sprints - An array of sprint objects to select from when transferring items to a sprint backlog.
- * @param {function} onAddToSprintBacklog - Callback function to handle transferring an item to the selected sprint backlog.
- * 
- * @example
- * <ProductBacklog sprints={sprintArray} onAddToSprintBacklog={handleAddToSprintBacklog} />
- * 
- * @dependencies
- * - react: Core library for building the component.
- * - uuid: Library for generating unique identifiers for backlog items.
- * - AddItem: Custom component for adding new items to the backlog.
- * - DeleteItem: Custom component for deleting backlog items.
- * - ProductBacklog.css: CSS for styling the product backlog.
- * 
- * @notes
- * - Items can be sorted based on various criteria (createdAt, title, priority, status, developer).
- * - The backlog items are saved to local storage, ensuring persistence across sessions.
- * - Includes a status summary displaying the count of items in each status category (To do, In Progress, Completed).
- * - Supports editing of existing items and confirms actions when necessary.
- */
+import { api } from "../../api";
 
 
 function ProductBacklog({ sprints = [], onAddToSprintBacklog }) {
-  const [backlogItems, setBacklogItems] = useState(() => {
-    const savedItems = localStorage.getItem('backlogItems');
-    return savedItems ? JSON.parse(savedItems) : [];
-  });
+  // CHANGED: start empty; load from DB
+  const [backlogItems, setBacklogItems] = useState([]);
 
   const [editingId, setEditingId] = useState(null);
   const [editingTitle, setEditingTitle] = useState('');
@@ -45,57 +16,95 @@ function ProductBacklog({ sprints = [], onAddToSprintBacklog }) {
   const [editingDeveloper, setEditingDeveloper] = useState('');
   const [editingStatus, setEditingStatus] = useState('');
 
-  const [sortCriteria, setSortCriteria] = useState('createdAt'); // Default to sorting by creation time
+  const [sortCriteria, setSortCriteria] = useState('createdAt'); // kept
   const [sortOrder, setSortOrder] = useState('asc');
   const [selectedSprint, setSelectedSprint] = useState('');
 
-  // Save to local storage whenever backlogItems changes
+  // ADDED: fetch tasks from DB
+  const fetchBacklogItems = async () => {
+    try {
+      const res = await api.get('/api/tasks?sprint=Backlog');
+      const normalized = (res.data || []).map((t) => ({
+        // keep fields your UI expects
+        id: t.id,
+        title: t.title,
+        priority: t.priority,
+        developer: t.assignedTo || 'Daksh',
+        status: t.status || 'Awaiting Action',
+        completed: (t.status || '') === 'Completed',
+        completedInSprint: null, // you had this; backend doesn't store yet
+        createdAt: t.id, // keep sorting stable; DB doesn't send createdAt
+      }));
+      setBacklogItems(normalized);
+    } catch (err) {
+      console.error("Failed to fetch backlog items:", err);
+      alert("Failed to load backlog from database.");
+    }
+  };
+
+  // CHANGED: load from DB on mount
   useEffect(() => {
-    localStorage.setItem('backlogItems', JSON.stringify(backlogItems));
-  }, [backlogItems]);
+    fetchBacklogItems();
+  }, []);
 
-  // Function to add a new item to the backlog
-  const handleAddItem = (item) => {
-    const newItem = {
-      id: uuidv4(), // Use UUID for unique ID
-      title: item.title,
-      priority: item.priority,
-      developer: item.developer || 'Daksh', // Set default to 'Daksh' if not provided
-      status: 'Awaiting Action', // Default status
-      completed: false,
-      completedInSprint: null,
-      createdAt: Date.now(), // Timestamp for ordering
-    };
-    setBacklogItems([...backlogItems, newItem]);
+  // ❌ REMOVED localStorage save (this is now DB)
+  // useEffect(() => {
+  //   localStorage.setItem('backlogItems', JSON.stringify(backlogItems));
+  // }, [backlogItems]);
+
+  // CHANGED: add item -> POST to DB
+  const handleAddItem = async (item) => {
+    try {
+      await api.post('/api/tasks', {
+        title: item.title,
+        priority: item.priority,
+        status: 'Awaiting Action',
+        assignedTo: item.developer || 'Daksh',
+        timeSpent: 0,
+        sprint: "Backlog",
+      });
+
+      await fetchBacklogItems();
+    } catch (err) {
+      console.error("Failed to add task:", err);
+      alert("Failed to add task to database.");
+    }
   };
 
-  // Function to delete an item from the backlog
-  const handleDeleteItem = (id) => {
-    const updatedItems = backlogItems.filter((item) => item.id !== id);
-    setBacklogItems(updatedItems);
+  // CHANGED: delete item -> DELETE in DB
+  const handleDeleteItem = async (id) => {
+    try {
+      await api.delete(`/api/tasks/${id}`);
+      await fetchBacklogItems();
+    } catch (err) {
+      console.error("Failed to delete task:", err);
+      alert("Failed to delete task from database.");
+    }
   };
 
-  // Function to handle status changes
-  const handleStatusChange = (id, newStatus) => {
-    const updatedItems = backlogItems.map((item) =>
-      item.id === id
-        ? {
-            ...item,
-            status: newStatus,
-            completed: newStatus === 'Completed',
-            completedInSprint: newStatus === 'Completed' ? selectedSprint : item.completedInSprint,
-          }
-        : item
-    );
-    setBacklogItems(updatedItems);
+  // CHANGED: status change -> PUT in DB
+  const handleStatusChange = async (id, newStatus) => {
+    try {
+      // keep your local logic conceptually, but persist to DB
+      const item = backlogItems.find((x) => x.id === id);
+      if (!item) return;
+
+      await api.put(`/api/tasks/${id}`, {
+        status: newStatus,
+      });
+
+      await fetchBacklogItems();
+    } catch (err) {
+      console.error("Failed to update status:", err);
+      alert("Failed to update status in database.");
+    }
   };
 
-  // Enable editing mode for a specific item
+  // Enable editing mode for a specific item (unchanged)
   const handleEditItem = (id) => {
     const itemToEdit = backlogItems.find((item) => item.id === id);
     if (!itemToEdit) return;
 
-    // Optional: Confirm if editing a completed item
     if (itemToEdit.completed) {
       const confirmEdit = window.confirm(
         'This item is marked as completed. Do you want to edit it?'
@@ -109,35 +118,33 @@ function ProductBacklog({ sprints = [], onAddToSprintBacklog }) {
     setEditingTitle(itemToEdit.title);
     setEditingPriority(itemToEdit.priority);
     setEditingDeveloper(itemToEdit.developer);
-    setEditingStatus(itemToEdit.status); // Initialize status for editing
+    setEditingStatus(itemToEdit.status);
   };
 
-  // Save the edited item
-  const handleSaveEdit = (id) => {
-    const updatedItems = backlogItems.map((item) =>
-      item.id === id
-        ? {
-            ...item,
-            title: editingTitle,
-            priority: editingPriority,
-            developer: editingDeveloper,
-            status: editingStatus,
-            completed: editingStatus === 'Completed',
-            completedInSprint:
-              editingStatus === 'Completed' ? selectedSprint : item.completedInSprint,
-          }
-        : item
-    );
-    setBacklogItems(updatedItems);
-    setEditingId(null); // Exit edit mode
-    // Reset editing states
-    setEditingTitle('');
-    setEditingPriority('');
-    setEditingDeveloper('');
-    setEditingStatus('');
+  // CHANGED: save edit -> PUT in DB
+  const handleSaveEdit = async (id) => {
+    try {
+      await api.put(`/api/tasks/${id}`, {
+        title: editingTitle,
+        priority: editingPriority,
+        assignedTo: editingDeveloper,
+        status: editingStatus,
+      });
+
+      setEditingId(null);
+      setEditingTitle('');
+      setEditingPriority('');
+      setEditingDeveloper('');
+      setEditingStatus('');
+
+      await fetchBacklogItems();
+    } catch (err) {
+      console.error("Failed to save edit:", err);
+      alert("Failed to update task in database.");
+    }
   };
 
-  // Cancel editing
+  // Cancel editing (unchanged)
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditingTitle('');
@@ -146,7 +153,7 @@ function ProductBacklog({ sprints = [], onAddToSprintBacklog }) {
     setEditingStatus('');
   };
 
-  // Sort items
+  // Sort items (unchanged)
   const sortBacklogItems = (items, criteria, order) => {
     return [...items].sort((a, b) => {
       if (criteria === 'createdAt') {
@@ -157,7 +164,6 @@ function ProductBacklog({ sprints = [], onAddToSprintBacklog }) {
         return order === 'asc' ? valueA.localeCompare(valueB) : valueB.localeCompare(valueA);
       }
 
-      // For other criteria (e.g., title, priority, status)
       const valueA = a[criteria].toString().toLowerCase();
       const valueB = b[criteria].toString().toLowerCase();
 
@@ -167,7 +173,7 @@ function ProductBacklog({ sprints = [], onAddToSprintBacklog }) {
     });
   };
 
-  // Handle sorting changes
+  // Handle sorting changes (unchanged)
   const handleSortChange = (event) => {
     const { name, value } = event.target;
     if (name === 'criteria') {
@@ -177,16 +183,27 @@ function ProductBacklog({ sprints = [], onAddToSprintBacklog }) {
     }
   };
 
-  // Memoize sorted items for performance
+  // Memoize sorted items (unchanged)
   const sortedBacklogItems = useMemo(() => {
     return sortBacklogItems(backlogItems, sortCriteria, sortOrder);
   }, [backlogItems, sortCriteria, sortOrder]);
 
-  // Function to transfer an item to the selected sprint backlog
-  const handleTransferToSprint = (item) => {
+  // CHANGED: transfer to sprint should also update DB sprint
+  const handleTransferToSprint = async (item) => {
     if (selectedSprint && typeof onAddToSprintBacklog === 'function') {
-      onAddToSprintBacklog(item, selectedSprint); // Pass the selected sprint name
-      handleDeleteItem(item.id); // Remove from product backlog once added to sprint backlog
+      try {
+        // update DB sprint field
+        await api.put(`/api/tasks/${item.id}`, {
+          sprint: selectedSprint
+        });
+
+        // keep your existing behavior too
+        onAddToSprintBacklog(item, selectedSprint);
+        await fetchBacklogItems();
+      } catch (err) {
+        console.error("Failed to transfer to sprint:", err);
+        alert("Failed to transfer task to sprint in database.");
+      }
     } else {
       alert('Please select a sprint to add this item to.');
     }
@@ -239,7 +256,7 @@ function ProductBacklog({ sprints = [], onAddToSprintBacklog }) {
       <table className="backlog-table">
         <thead>
           <tr>
-            <th>ID</th> {/* Sequential number based on sorted list */}
+            <th>ID</th>
             <th>Task</th>
             <th>Priority</th>
             <th>Status</th>
@@ -343,7 +360,7 @@ function ProductBacklog({ sprints = [], onAddToSprintBacklog }) {
                         Edit
                       </button>
                       <DeleteItem id={item.id} onDelete={handleDeleteItem} />
-                      {/* Display the transfer to sprint functionality only if onAddToSprintBacklog is provided */}
+
                       {typeof onAddToSprintBacklog === 'function' && !item.completed && (
                         <>
                           <select
