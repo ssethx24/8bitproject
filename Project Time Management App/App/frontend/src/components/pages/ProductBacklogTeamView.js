@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid'; // Import UUID
 import AddItem from './AddItem';
 import './ProductBacklog.css';
+import { api } from "../api";
 
 function ProductBacklogTeamView({ sprints = [], onAddToSprintBacklog }) {
   const [backlogItems, setBacklogItems] = useState(() => {
@@ -13,10 +14,19 @@ function ProductBacklogTeamView({ sprints = [], onAddToSprintBacklog }) {
   const [sortOrder, setSortOrder] = useState('asc');
   const [selectedSprint, setSelectedSprint] = useState('');
 
-  // Save to local storage whenever backlogItems changes
+  // Fetch backlog items from DB on load
   useEffect(() => {
-    localStorage.setItem('backlogItems', JSON.stringify(backlogItems));
-  }, [backlogItems]);
+    const fetchBacklog = async () => {
+      try {
+        const res = await api.get('/api/tasks?sprint=Backlog');
+        setBacklogItems(res.data || []);
+      } catch (err) {
+        console.error("Failed to load backlog from database:", err);
+        alert("Failed to load backlog from database. Check backend.");
+      }
+    };
+    fetchBacklog();
+  }, []);
 
   // Count the number of items in each status
   const statusSummary = backlogItems.reduce(
@@ -27,25 +37,40 @@ function ProductBacklogTeamView({ sprints = [], onAddToSprintBacklog }) {
     { 'Awaiting Action': 0, 'Under Development': 0, Completed: 0 }
   );
 
-  // Function to add a new item to the backlog
-  const handleAddItem = (item) => {
+  // Add a new item to DB + state
+  const handleAddItem = async (item) => {
     const newItem = {
-      id: uuidv4(), // Use UUID for unique ID
+      id: uuidv4(), // keep your UUID id
       title: item.title,
       priority: item.priority,
       developer: item.developer,
-      status: 'Awaiting Action', // Default status
-      createdAt: Date.now(), // Timestamp for ordering
+      status: 'Awaiting Action',
+      createdAt: Date.now(),
+      sprint: "Backlog", // ✅ important
     };
-    setBacklogItems([...backlogItems, newItem]);
+
+    try {
+      await api.post("/api/tasks", newItem);
+      setBacklogItems((prev) => [...prev, newItem]);
+    } catch (err) {
+      console.error("Failed to add task:", err);
+      alert("Failed to add task. Check backend.");
+    }
   };
 
-  // Function to handle developer changes
-  const handleDeveloperChange = (id, newDeveloper) => {
+  // ✅ Update developer in DB + state
+  const handleDeveloperChange = async (id, newDeveloper) => {
     const updatedItems = backlogItems.map((item) =>
       item.id === id ? { ...item, developer: newDeveloper } : item
     );
     setBacklogItems(updatedItems);
+
+    try {
+      await api.put(`/api/tasks/${id}`, { developer: newDeveloper });
+    } catch (err) {
+      console.error("Failed to update developer:", err);
+      alert("Failed to update developer. Check backend.");
+    }
   };
 
   // Sort items
@@ -59,7 +84,6 @@ function ProductBacklogTeamView({ sprints = [], onAddToSprintBacklog }) {
         return order === 'asc' ? valueA.localeCompare(valueB) : valueB.localeCompare(valueA);
       }
 
-      // For other criteria (e.g., title, priority, status)
       const valueA = a[criteria].toString().toLowerCase();
       const valueB = b[criteria].toString().toLowerCase();
 
@@ -84,20 +108,41 @@ function ProductBacklogTeamView({ sprints = [], onAddToSprintBacklog }) {
     return sortBacklogItems(backlogItems, sortCriteria, sortOrder);
   }, [backlogItems, sortCriteria, sortOrder]);
 
-  // Function to transfer an item to the selected sprint backlog
-  const handleTransferToSprint = (item) => {
-    if (selectedSprint && typeof onAddToSprintBacklog === 'function') {
-      onAddToSprintBacklog(item, selectedSprint); // Pass the selected sprint name
-      handleDeleteItem(item.id); // Remove from product backlog once added to sprint backlog
-    } else {
+  // ✅ Transfer: update the task sprint in DB, then remove from this list
+  const handleTransferToSprint = async (item) => {
+    if (!selectedSprint) {
       alert('Please select a sprint to add this item to.');
+      return;
+    }
+
+    try {
+      // update task sprint in DB
+      await api.put(`/api/tasks/${item.id}`, { sprint: selectedSprint });
+
+      // keep your old behavior: remove from backlog list UI
+      handleDeleteItem(item.id);
+
+      // keep callback (optional)
+      if (typeof onAddToSprintBacklog === 'function') {
+        onAddToSprintBacklog(item, selectedSprint);
+      }
+    } catch (err) {
+      console.error("Failed to transfer task:", err);
+      alert("Failed to transfer to sprint. Check backend.");
     }
   };
 
-  // Function to delete an item from the backlog (only for transferring)
-  const handleDeleteItem = (id) => {
+  // ✅ Delete from DB + state (used in transfer flow)
+  const handleDeleteItem = async (id) => {
     const updatedItems = backlogItems.filter((item) => item.id !== id);
     setBacklogItems(updatedItems);
+
+    try {
+      await api.delete(`/api/tasks/${id}`);
+    } catch (err) {
+      console.error("Failed to delete task:", err);
+      alert("Failed to delete task. Check backend.");
+    }
   };
 
   return (
@@ -146,7 +191,7 @@ function ProductBacklogTeamView({ sprints = [], onAddToSprintBacklog }) {
       <table className="backlog-table">
         <thead>
           <tr>
-            <th>ID</th> {/* Sequential number based on sorted list */}
+            <th>ID</th>
             <th>Task</th>
             <th>Priority</th>
             <th>Developer</th>
@@ -166,16 +211,10 @@ function ProductBacklogTeamView({ sprints = [], onAddToSprintBacklog }) {
                   : 'completed'
               }
             >
-              {/* Sequential number */}
               <td>{index + 1}</td>
-
-              {/* Task Title */}
               <td>{item.title}</td>
-
-              {/* Priority */}
               <td>{item.priority}</td>
 
-              {/* Developer */}
               <td>
                 <select
                   value={item.developer}
@@ -190,12 +229,9 @@ function ProductBacklogTeamView({ sprints = [], onAddToSprintBacklog }) {
                 </select>
               </td>
 
-              {/* Status Display */}
               <td>{item.status}</td>
 
-              {/* Actions */}
               <td>
-                {/* Display the transfer to sprint functionality only if onAddToSprintBacklog is provided */}
                 {typeof onAddToSprintBacklog === 'function' && !item.completed && (
                   <div className="transfer-actions">
                     <select
