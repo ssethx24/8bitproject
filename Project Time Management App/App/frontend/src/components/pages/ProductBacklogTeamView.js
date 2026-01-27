@@ -2,84 +2,77 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid'; // Import UUID
 import AddItem from './AddItem';
 import './ProductBacklog.css';
-import { api } from "../api"; //
+import { api } from "../../api";
 
 function ProductBacklogTeamView({ sprints = [], onAddToSprintBacklog }) {
-  //  DB is the source of truth now
-  const [backlogItems, setBacklogItems] = useState([]);
+  const [backlogItems, setBacklogItems] = useState([]); // DB
 
   const [sortCriteria, setSortCriteria] = useState('title');
   const [sortOrder, setSortOrder] = useState('asc');
   const [selectedSprint, setSelectedSprint] = useState('');
 
-  //  Load backlog from DB on mount
+  // Load from DB on mount
   useEffect(() => {
-    const fetchBacklog = async () => {
-      try {
-        const res = await api.get('/api/tasks?sprint=Backlog');
-        setBacklogItems(res.data || []);
-      } catch (error) {
-        console.error('Failed to fetch backlog items:', error);
-        alert('Failed to load backlog from database.');
-      }
-    };
-
     fetchBacklog();
   }, []);
+
+  const fetchBacklog = async () => {
+    try {
+      const res = await api.get('/api/backlog');
+      setBacklogItems(res.data || []);
+    } catch (err) {
+      console.error("Failed to load backlog from database:", err);
+      alert("Failed to load backlog from database. Check backend.");
+    }
+  };
 
   // Count the number of items in each status
   const statusSummary = backlogItems.reduce(
     (summary, item) => {
-      summary[item.status] += 1;
+      const s = item.status || 'Awaiting Action';
+      if (summary[s] === undefined) summary[s] = 0;
+      summary[s] += 1;
       return summary;
     },
     { 'Awaiting Action': 0, 'Under Development': 0, Completed: 0 }
   );
 
-  // Add item -> POST to DB, then refresh list
+  // Add new item -> DB
   const handleAddItem = async (item) => {
     const newItem = {
-      // Keep UUID for compatibility with your frontend, but backend may store its own id
-      id: uuidv4(),
+      id: uuidv4(), // keep UUID (works even if backend accepts it)
       title: item.title,
       priority: item.priority,
       developer: item.developer,
       status: 'Awaiting Action',
       createdAt: Date.now(),
-      sprint: 'Backlog'
+      completed: false,
+      completedInSprint: null,
     };
 
     try {
-      await api.post('/api/tasks', newItem);
-
-      // Reload from DB so everyone sees the same tasks
-      const res = await api.get('/api/tasks?sprint=Backlog');
-      setBacklogItems(res.data || []);
-    } catch (error) {
-      console.error('Failed to add item:', error);
-      alert('Failed to add item to database.');
+      await api.post('/api/backlog', newItem);
+      await fetchBacklog();
+    } catch (err) {
+      console.error("Failed to add backlog item:", err);
+      alert("Failed to add task. Check backend.");
     }
   };
 
-  //  Developer change -> PUT to DB, then update local state
+  // Update developer -> DB
   const handleDeveloperChange = async (id, newDeveloper) => {
-    // Optimistic UI update
-    const updatedItems = backlogItems.map((item) =>
-      item.id === id ? { ...item, developer: newDeveloper } : item
-    );
-    setBacklogItems(updatedItems);
+    const existing = backlogItems.find((x) => x.id === id);
+    if (!existing) return;
 
     try {
-      await api.put(`/api/tasks/${id}`, { developer: newDeveloper });
-    } catch (error) {
-      console.error('Failed to update developer:', error);
-      alert('Failed to update developer in database.');
-
-      // Re-sync with DB if update fails
-      try {
-        const res = await api.get('/api/tasks?sprint=Backlog');
-        setBacklogItems(res.data || []);
-      } catch (e) {}
+      await api.put(`/api/backlog/${encodeURIComponent(id)}`, {
+        ...existing,
+        developer: newDeveloper,
+      });
+      await fetchBacklog();
+    } catch (err) {
+      console.error("Failed to update developer:", err);
+      alert("Failed to update developer. Check backend.");
     }
   };
 
@@ -87,7 +80,9 @@ function ProductBacklogTeamView({ sprints = [], onAddToSprintBacklog }) {
   const sortBacklogItems = (items, criteria, order) => {
     return [...items].sort((a, b) => {
       if (criteria === 'createdAt') {
-        return order === 'asc' ? a.createdAt - b.createdAt : b.createdAt - a.createdAt;
+        const aT = a.createdAt || 0;
+        const bT = b.createdAt || 0;
+        return order === 'asc' ? aT - bT : bT - aT;
       } else if (criteria === 'developer') {
         const valueA = (a.developer || '').toString().toLowerCase();
         const valueB = (b.developer || '').toString().toLowerCase();
@@ -118,25 +113,24 @@ function ProductBacklogTeamView({ sprints = [], onAddToSprintBacklog }) {
     return sortBacklogItems(backlogItems, sortCriteria, sortOrder);
   }, [backlogItems, sortCriteria, sortOrder]);
 
-  // Transfer to sprint -> update sprint in DB, then refresh backlog
+  // Function to transfer an item to the selected sprint backlog
   const handleTransferToSprint = async (item) => {
     if (selectedSprint && typeof onAddToSprintBacklog === 'function') {
-      try {
-        // Update the task sprint in DB
-        await api.put(`/api/tasks/${item.id}`, { sprint: selectedSprint });
-
-        // Optional callback (kept)
-        onAddToSprintBacklog(item, selectedSprint);
-
-        // Refresh backlog list (Backlog only)
-        const res = await api.get('/api/tasks?sprint=Backlog');
-        setBacklogItems(res.data || []);
-      } catch (error) {
-        console.error('Failed to transfer item:', error);
-        alert('Failed to transfer to sprint in database.');
-      }
+      onAddToSprintBacklog(item, selectedSprint);
+      await handleDeleteItem(item.id);
     } else {
       alert('Please select a sprint to add this item to.');
+    }
+  };
+
+  // Delete (used for transfer) -> DB
+  const handleDeleteItem = async (id) => {
+    try {
+      await api.delete(`/api/backlog/${encodeURIComponent(id)}`);
+      await fetchBacklog();
+    } catch (err) {
+      console.error("Failed to delete backlog item:", err);
+      alert("Failed to delete task. Check backend.");
     }
   };
 
@@ -164,6 +158,7 @@ function ProductBacklogTeamView({ sprints = [], onAddToSprintBacklog }) {
           <option value="priority">Priority</option>
           <option value="status">Status</option>
           <option value="developer">Developer</option>
+          <option value="createdAt">Id</option>
         </select>
 
         <label htmlFor="sort-order">Order:</label>
@@ -194,6 +189,7 @@ function ProductBacklogTeamView({ sprints = [], onAddToSprintBacklog }) {
             <th>Actions</th>
           </tr>
         </thead>
+
         <tbody>
           {sortedBacklogItems.map((item, index) => (
             <tr
@@ -212,7 +208,7 @@ function ProductBacklogTeamView({ sprints = [], onAddToSprintBacklog }) {
 
               <td>
                 <select
-                  value={item.developer}
+                  value={item.developer || 'Daksh'}
                   onChange={(e) => handleDeveloperChange(item.id, e.target.value)}
                 >
                   <option value="Daksh">Daksh</option>
@@ -227,7 +223,7 @@ function ProductBacklogTeamView({ sprints = [], onAddToSprintBacklog }) {
               <td>{item.status}</td>
 
               <td>
-                {typeof onAddToSprintBacklog === 'function' && (
+                {typeof onAddToSprintBacklog === 'function' && !item.completed && (
                   <div className="transfer-actions">
                     <select
                       value={selectedSprint}
@@ -241,6 +237,7 @@ function ProductBacklogTeamView({ sprints = [], onAddToSprintBacklog }) {
                           </option>
                         ))}
                     </select>
+
                     <button onClick={() => handleTransferToSprint(item)}>
                       Add to Sprint
                     </button>
@@ -250,6 +247,7 @@ function ProductBacklogTeamView({ sprints = [], onAddToSprintBacklog }) {
             </tr>
           ))}
         </tbody>
+
       </table>
     </div>
   );
