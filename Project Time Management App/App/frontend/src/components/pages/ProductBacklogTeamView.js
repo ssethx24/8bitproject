@@ -2,29 +2,28 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid'; // Import UUID
 import AddItem from './AddItem';
 import './ProductBacklog.css';
-import { api } from "../api";
+import { api } from "../api"; //
 
 function ProductBacklogTeamView({ sprints = [], onAddToSprintBacklog }) {
-  const [backlogItems, setBacklogItems] = useState(() => {
-    const savedItems = localStorage.getItem('backlogItems');
-    return savedItems ? JSON.parse(savedItems) : [];
-  });
+  //  DB is the source of truth now
+  const [backlogItems, setBacklogItems] = useState([]);
 
   const [sortCriteria, setSortCriteria] = useState('title');
   const [sortOrder, setSortOrder] = useState('asc');
   const [selectedSprint, setSelectedSprint] = useState('');
 
-  // Fetch backlog items from DB on load
+  //  Load backlog from DB on mount
   useEffect(() => {
     const fetchBacklog = async () => {
       try {
         const res = await api.get('/api/tasks?sprint=Backlog');
         setBacklogItems(res.data || []);
-      } catch (err) {
-        console.error("Failed to load backlog from database:", err);
-        alert("Failed to load backlog from database. Check backend.");
+      } catch (error) {
+        console.error('Failed to fetch backlog items:', error);
+        alert('Failed to load backlog from database.');
       }
     };
+
     fetchBacklog();
   }, []);
 
@@ -37,29 +36,34 @@ function ProductBacklogTeamView({ sprints = [], onAddToSprintBacklog }) {
     { 'Awaiting Action': 0, 'Under Development': 0, Completed: 0 }
   );
 
-  // Add a new item to DB + state
+  // Add item -> POST to DB, then refresh list
   const handleAddItem = async (item) => {
     const newItem = {
-      id: uuidv4(), // keep your UUID id
+      // Keep UUID for compatibility with your frontend, but backend may store its own id
+      id: uuidv4(),
       title: item.title,
       priority: item.priority,
       developer: item.developer,
       status: 'Awaiting Action',
       createdAt: Date.now(),
-      sprint: "Backlog", // ✅ important
+      sprint: 'Backlog'
     };
 
     try {
-      await api.post("/api/tasks", newItem);
-      setBacklogItems((prev) => [...prev, newItem]);
-    } catch (err) {
-      console.error("Failed to add task:", err);
-      alert("Failed to add task. Check backend.");
+      await api.post('/api/tasks', newItem);
+
+      // Reload from DB so everyone sees the same tasks
+      const res = await api.get('/api/tasks?sprint=Backlog');
+      setBacklogItems(res.data || []);
+    } catch (error) {
+      console.error('Failed to add item:', error);
+      alert('Failed to add item to database.');
     }
   };
 
-  // ✅ Update developer in DB + state
+  //  Developer change -> PUT to DB, then update local state
   const handleDeveloperChange = async (id, newDeveloper) => {
+    // Optimistic UI update
     const updatedItems = backlogItems.map((item) =>
       item.id === id ? { ...item, developer: newDeveloper } : item
     );
@@ -67,9 +71,15 @@ function ProductBacklogTeamView({ sprints = [], onAddToSprintBacklog }) {
 
     try {
       await api.put(`/api/tasks/${id}`, { developer: newDeveloper });
-    } catch (err) {
-      console.error("Failed to update developer:", err);
-      alert("Failed to update developer. Check backend.");
+    } catch (error) {
+      console.error('Failed to update developer:', error);
+      alert('Failed to update developer in database.');
+
+      // Re-sync with DB if update fails
+      try {
+        const res = await api.get('/api/tasks?sprint=Backlog');
+        setBacklogItems(res.data || []);
+      } catch (e) {}
     }
   };
 
@@ -79,13 +89,13 @@ function ProductBacklogTeamView({ sprints = [], onAddToSprintBacklog }) {
       if (criteria === 'createdAt') {
         return order === 'asc' ? a.createdAt - b.createdAt : b.createdAt - a.createdAt;
       } else if (criteria === 'developer') {
-        const valueA = a.developer.toString().toLowerCase();
-        const valueB = b.developer.toString().toLowerCase();
+        const valueA = (a.developer || '').toString().toLowerCase();
+        const valueB = (b.developer || '').toString().toLowerCase();
         return order === 'asc' ? valueA.localeCompare(valueB) : valueB.localeCompare(valueA);
       }
 
-      const valueA = a[criteria].toString().toLowerCase();
-      const valueB = b[criteria].toString().toLowerCase();
+      const valueA = (a[criteria] || '').toString().toLowerCase();
+      const valueB = (b[criteria] || '').toString().toLowerCase();
 
       if (valueA < valueB) return order === 'asc' ? -1 : 1;
       if (valueA > valueB) return order === 'asc' ? 1 : -1;
@@ -108,40 +118,25 @@ function ProductBacklogTeamView({ sprints = [], onAddToSprintBacklog }) {
     return sortBacklogItems(backlogItems, sortCriteria, sortOrder);
   }, [backlogItems, sortCriteria, sortOrder]);
 
-  // ✅ Transfer: update the task sprint in DB, then remove from this list
+  // Transfer to sprint -> update sprint in DB, then refresh backlog
   const handleTransferToSprint = async (item) => {
-    if (!selectedSprint) {
-      alert('Please select a sprint to add this item to.');
-      return;
-    }
+    if (selectedSprint && typeof onAddToSprintBacklog === 'function') {
+      try {
+        // Update the task sprint in DB
+        await api.put(`/api/tasks/${item.id}`, { sprint: selectedSprint });
 
-    try {
-      // update task sprint in DB
-      await api.put(`/api/tasks/${item.id}`, { sprint: selectedSprint });
-
-      // keep your old behavior: remove from backlog list UI
-      handleDeleteItem(item.id);
-
-      // keep callback (optional)
-      if (typeof onAddToSprintBacklog === 'function') {
+        // Optional callback (kept)
         onAddToSprintBacklog(item, selectedSprint);
+
+        // Refresh backlog list (Backlog only)
+        const res = await api.get('/api/tasks?sprint=Backlog');
+        setBacklogItems(res.data || []);
+      } catch (error) {
+        console.error('Failed to transfer item:', error);
+        alert('Failed to transfer to sprint in database.');
       }
-    } catch (err) {
-      console.error("Failed to transfer task:", err);
-      alert("Failed to transfer to sprint. Check backend.");
-    }
-  };
-
-  // ✅ Delete from DB + state (used in transfer flow)
-  const handleDeleteItem = async (id) => {
-    const updatedItems = backlogItems.filter((item) => item.id !== id);
-    setBacklogItems(updatedItems);
-
-    try {
-      await api.delete(`/api/tasks/${id}`);
-    } catch (err) {
-      console.error("Failed to delete task:", err);
-      alert("Failed to delete task. Check backend.");
+    } else {
+      alert('Please select a sprint to add this item to.');
     }
   };
 
@@ -232,7 +227,7 @@ function ProductBacklogTeamView({ sprints = [], onAddToSprintBacklog }) {
               <td>{item.status}</td>
 
               <td>
-                {typeof onAddToSprintBacklog === 'function' && !item.completed && (
+                {typeof onAddToSprintBacklog === 'function' && (
                   <div className="transfer-actions">
                     <select
                       value={selectedSprint}
