@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import './Login.css';
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import "./Login.css";
 import { api } from "../api";
 
 /**
@@ -8,41 +8,45 @@ import { api } from "../api";
  * @description Login component
  */
 function Login({ setIsAuthenticated, setUserRole }) {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
   const navigate = useNavigate();
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    setErrorMessage(''); // clear old error
+    setErrorMessage(""); // clear old error
 
     try {
-      const response = await api.post('/api/login', {
+      const response = await api.post("/api/login", {
         email: username.trim(),
-        password: password
+        password: password,
       });
 
-      // success
-      const { role } = response.data;
-      localStorage.setItem('authenticated', 'true');
-      localStorage.setItem('role', role);
-      setIsAuthenticated(true);
-      setUserRole(role);
+      // ✅ Node backend returns: { token, user: { email, role } }
+      const { token, user } = response.data;
 
-      navigate('/'); // with HashRouter this becomes #/
+      // ✅ Save JWT token (this is the real authentication)
+      localStorage.setItem("token", token);
+
+      // Optional: keep your existing flags for UI logic
+      localStorage.setItem("authenticated", "true");
+      localStorage.setItem("role", user.role);
+
+      setIsAuthenticated(true);
+      setUserRole(user.role);
+
+      navigate("/"); // with HashRouter this becomes #/
     } catch (error) {
-      // ✅ show real reason instead of always "invalid credentials"
       const status = error?.response?.status;
       const backendMsg = error?.response?.data?.message;
 
       if (status === 401) {
-        setErrorMessage('Invalid credentials, please try again.');
+        setErrorMessage("Invalid credentials, please try again.");
       } else if (status) {
-        setErrorMessage(`Login failed (HTTP ${status}): ${backendMsg || 'Server error'}`);
+        setErrorMessage(`Login failed (HTTP ${status}): ${backendMsg || "Server error"}`);
       } else {
-        // network/CORS/etc.
-        setErrorMessage(`Login failed: ${error?.message || 'Network/CORS error'}`);
+        setErrorMessage(`Login failed: ${error?.message || "Network/CORS error"}`);
       }
 
       console.error("Login error:", error);
