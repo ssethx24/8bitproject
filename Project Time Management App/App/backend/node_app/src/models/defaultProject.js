@@ -1,4 +1,4 @@
-import Project from "./models/Project.js";
+import Project from "./Project.js";
 
 export async function getDefaultProjectId() {
   let p = await Project.findOne({ name: "Default Project" });
