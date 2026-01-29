@@ -10,7 +10,7 @@ import BurndownChart from './BurndownChart'; // Ensure this component exists
 // import DatePicker from 'react-datepicker';
 // import 'react-datepicker/dist/react-datepicker.css';
 
-const Sprint3 = () => {
+const Sprint1 = () => {
   const { theme } = useContext(ThemeContext);
 
   // State for sprints
@@ -318,7 +318,7 @@ const Sprint3 = () => {
 
   return (
     <div className={`sprint-page theme-${theme}`}>
-      <h1>Sprint - 3</h1>
+      <h1>Sprint - 1</h1>
 
       {/* Sprint Details Section */}
       <div className="sprint-details">
@@ -433,7 +433,7 @@ const Sprint3 = () => {
                 <div><strong>End Date:</strong> {sprint.endDate}</div>
                 <div><strong>Progress:</strong> {sprint.progress}</div>
                 {/* Only show Edit and Delete buttons for "Sprint 1" */}
-                {sprint.name === 'Sprint 3' && (
+                {sprint.name === 'Sprint 1' && (
                   <>
                     <button onClick={() => handleEditSprint(sprint.name)}>Edit</button>
                     <button onClick={() => handleDeleteSprint(sprint.name)}>Delete</button>
@@ -607,4 +607,4 @@ const Sprint3 = () => {
   );
 };
 
-export default Sprint3;
+export default Sprint1;

@@ -5,11 +5,14 @@ import { connectDB } from "./db.js";
 import authRoutes from "./routes/auth.js";
 import { seedIfMissing } from "./seed.js";
 import { requireAuth } from "./middleware/auth.js";
+import backlogRoutes from "./routes/backlog.js";
+
 
 dotenv.config();
 
 const app = express();
 app.use(express.json());
+app.use("/api", backlogRoutes);
 
 // ✅ Allow local + GitHub Pages + optional env frontend
 const allowedOrigins = [
