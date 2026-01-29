@@ -1,31 +1,33 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+
 import { connectDB } from "./db.js";
 import authRoutes from "./routes/auth.js";
+import backlogRoutes from "./routes/backlog.js";
 import { seedIfMissing } from "./seed.js";
 import { requireAuth } from "./middleware/auth.js";
-import backlogRoutes from "./routes/backlog.js";
-
 
 dotenv.config();
 
 const app = express();
+
+// ✅ Parse JSON bodies
 app.use(express.json());
-app.use("/api", backlogRoutes);
 
 // ✅ Allow local + GitHub Pages + optional env frontend
 const allowedOrigins = [
-  process.env.FRONTEND_URL,        // optional (if you set it on Render)
+  process.env.FRONTEND_URL,      // e.g. https://ssethx24.github.io
   "http://localhost:3000",
   "http://localhost:3001",
-  "https://ssethx24.github.io",    // ✅ GitHub Pages domain
+  "https://ssethx24.github.io",
 ].filter(Boolean);
 
+// ✅ CORS MUST come BEFORE routes
 app.use(
   cors({
     origin: (origin, callback) => {
-      // allow requests with no origin (like curl/postman)
+      // allow requests with no origin (curl/postman)
       if (!origin) return callback(null, true);
 
       if (allowedOrigins.includes(origin)) {
@@ -34,15 +36,25 @@ app.use(
 
       return callback(new Error(`CORS blocked for origin: ${origin}`));
     },
-    credentials: true,
+
+    // ✅ You are using Authorization Bearer token, not cookies
+    credentials: false,
+
+    // ✅ Important for preflight
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
+// ✅ Preflight handler (VERY IMPORTANT)
+app.options("*", cors());
 
 // Health check
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
-// Auth routes
+// ✅ Routes
 app.use("/api", authRoutes);
+app.use("/api", backlogRoutes);
 
 // Protected route test
 app.get("/api/me", requireAuth, (req, res) => res.json({ user: req.user }));
@@ -52,7 +64,9 @@ const PORT = process.env.PORT || 5000;
 connectDB()
   .then(async () => {
     await seedIfMissing();
-    app.listen(PORT, () => console.log(`🚀 Node API running on http://localhost:${PORT}`));
+    app.listen(PORT, () =>
+      console.log(`🚀 Node API running on http://localhost:${PORT}`)
+    );
   })
   .catch((err) => {
     console.error("❌ MongoDB connection failed:", err.message);
