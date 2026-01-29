@@ -19,7 +19,8 @@ app.use(
     origin: [
       process.env.FRONTEND_URL, // for deployed frontend later
       "http://localhost:3000",
-      "http://localhost:3001", // your current React dev server
+      "http://localhost:3001",
+       "https://ssethx24.github.io/8bitproject/#/login"// your current React dev server
     ].filter(Boolean),
     credentials: true,
   })
