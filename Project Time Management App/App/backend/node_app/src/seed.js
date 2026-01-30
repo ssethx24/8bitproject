@@ -49,16 +49,4 @@ export async function seedIfMissing() {
         : `✅ Seeded user: ${u.email} (${u.role})`
     );
   }
-
-  /* ======================
-     2) Seed SPRINTS
-     ====================== */
-  const projectId = await getDefaultProjectId();
-
-  const sprintNames = ["Sprint 1", "Sprint 2", "Sprint 3"];
-
-  for (const name of sprintNames) {
-    const sprint = await upsertSprint({ projectId, name });
-    console.log(`🏁 Sprint ready: ${sprint.name}`);
-  }
 }
