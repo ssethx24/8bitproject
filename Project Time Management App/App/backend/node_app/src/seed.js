@@ -2,7 +2,7 @@
 import bcrypt from "bcryptjs";
 import User from "./models/User.js";
 import Sprint from "./models/Sprint.js";
-import { getDefaultProjectId } from ".models/defaultProject.js";
+import { getDefaultProjectId } from "./models/defaultProject.js";
 
 async function upsertUser({ email, password, role }) {
   const existing = await User.findOne({ email });
