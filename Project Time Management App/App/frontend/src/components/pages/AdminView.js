@@ -1,135 +1,88 @@
-import React, { useEffect, useMemo, useState } from "react";
-import "./AdminView.css";
-import { api } from "../../api"; // ✅ use your axios instance (handles baseURL + Authorization)
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import './AdminView.css';
+
+//  Render backend base URL
+const API_BASE = 'https://eightbitproject.onrender.com';
 
 function AdminView() {
-  // Product backlog tasks (MongoDB)
+  // State to manage tasks from the product backlog
   const [tasks, setTasks] = useState([]);
-
-  // Users/devs (MongoDB)
+  // State to manage the list of developers/users
   const [users, setUsers] = useState([]);
+  // State to manage the new user's email during the "add user" process
+  const [newEmail, setNewEmail] = useState('');
+  // State to manage the new user's password during the "add user" process
+  const [newPassword, setNewPassword] = useState('');
 
-  // Add user fields
-  const [newEmail, setNewEmail] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-
-  const [loadingTasks, setLoadingTasks] = useState(false);
-  const [loadingUsers, setLoadingUsers] = useState(false);
-
+  // Fetch tasks and users when the component mounts
   useEffect(() => {
     fetchTasks();
     fetchUsers();
   }, []);
 
-  // ✅ Fetch Product Backlog tasks from server (NOT localStorage)
+  // Fetch tasks from local storage and update the state
   const fetchTasks = async () => {
-    try {
-      setLoadingTasks(true);
-      const res = await api.get("/api/backlog");
-
-      // normalize id for UI
-      const normalized = (res.data || []).map((it) => ({
-        id: it.clientId || it._id,
-        title: it.title,
-        priority: it.priority,
-        status: it.status,
-        developer: it.developer || "Daksh",
-        createdAt: it.createdAt,
-      }));
-
-      setTasks(normalized);
-    } catch (error) {
-      console.error("Failed to fetch tasks:", error);
-      alert("Failed to fetch tasks. Check backend + auth token.");
-    } finally {
-      setLoadingTasks(false);
-    }
+    setTasks(JSON.parse(localStorage.getItem('backlogItems')) || []);
   };
 
-  // ✅ Fetch users from backend
+  // Fetch the list of users from the deployed backend
   const fetchUsers = async () => {
     try {
-      setLoadingUsers(true);
-      const res = await api.get("/api/users");
-      setUsers(res.data || []);
+      const response = await axios.get(`${API_BASE}/api/users`);
+      setUsers(response.data);
     } catch (error) {
-      console.error("Failed to fetch users:", error);
-      alert("Failed to fetch users. Check backend/CORS/auth.");
-    } finally {
-      setLoadingUsers(false);
+      console.error('Failed to fetch users:', error);
+      alert('Failed to fetch users. Check backend/CORS.');
     }
   };
 
-  // ✅ Add user (POST /api/users)
+  //  Add a new user (POST /api/users)
   const handleAddUser = async () => {
     if (!newEmail || !newPassword) {
-      alert("Please enter both email and password.");
+      alert('Please enter both email and password.');
       return;
     }
 
     try {
-      await api.post("/api/users", {
+      await axios.post(`${API_BASE}/api/users`, {
         email: newEmail,
-        password: newPassword,
+        password: newPassword
       });
 
       await fetchUsers();
-      setNewEmail("");
-      setNewPassword("");
-      alert("User added: " + newEmail);
+      setNewEmail('');
+      setNewPassword('');
+      alert('User added: ' + newEmail);
     } catch (error) {
       const msg =
         error?.response?.data?.message ||
         error?.message ||
-        "Unknown error while adding user";
-      alert("Failed to add user: " + msg);
+        'Unknown error while adding user';
+      alert('Failed to add user: ' + msg);
     }
   };
 
-  // ✅ Delete user (DELETE /api/users/:email)
+  // Delete user (DELETE /api/users/<email>)
   const handleDeleteUser = async (email) => {
     try {
-      await api.delete(`/api/users/${encodeURIComponent(email)}`);
+      await axios.delete(`${API_BASE}/api/users/${encodeURIComponent(email)}`);
       await fetchUsers();
-      alert("User deleted: " + email);
+      alert('User deleted: ' + email);
     } catch (error) {
       const msg =
         error?.response?.data?.message ||
         error?.message ||
-        "Unknown error while deleting user";
-      alert("Failed to delete user: " + msg);
+        'Unknown error while deleting user';
+      alert('Failed to delete user: ' + msg);
     }
   };
-
-  // ✅ Assign developer to a task (PUT /api/backlog/:clientId)
-  const handleAssignDeveloper = async (taskId, developerEmailOrName) => {
-    try {
-      await api.put(`/api/backlog/${encodeURIComponent(taskId)}`, {
-        developer: developerEmailOrName,
-      });
-
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === taskId ? { ...t, developer: developerEmailOrName } : t
-        )
-      );
-    } catch (error) {
-      console.error("Failed to assign developer:", error);
-      alert("Failed to assign developer (server/auth error).");
-    }
-  };
-
-  // Optional: only show devs (hide scrummaster)
-  const devUsers = useMemo(() => {
-    return users.filter((u) => !String(u.email || "").includes("scrummaster"));
-  }, [users]);
 
   return (
     <div className="admin-view">
-      {/* Manage Developers */}
+      {/* Section for adding new developers */}
       <h2>Manage Developers</h2>
       <h3>Add New</h3>
-
       <div className="user-input">
         <input
           type="text"
@@ -143,108 +96,73 @@ function AdminView() {
           onChange={(e) => setNewPassword(e.target.value)}
           placeholder="Password"
         />
-        <button onClick={handleAddUser} disabled={loadingUsers}>
-          {loadingUsers ? "Working..." : "Add Developer"}
-        </button>
+        <button onClick={handleAddUser}>Add Developer</button>
       </div>
 
-      {/* Current Developers */}
+      {/* List of current developers */}
       <h3>Current Developers</h3>
       <div className="user-list">
-        {loadingUsers ? (
-          <p>Loading users…</p>
-        ) : (
-          <table className="user-table">
-            <tbody>
-              {users.map((user) => (
-                <tr key={user.email} className="user-row">
-                  <td>{user.email}</td>
-                  <td>
-                    {!String(user.email).includes("scrummaster") && (
-                      <button
-                        className="remove-button"
-                        onClick={() => handleDeleteUser(user.email)}
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {/* Product Backlog */}
-      <h2>Product Backlog</h2>
-
-      {loadingTasks ? (
-        <p>Loading backlog…</p>
-      ) : (
-        <table className="backlog-table">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Task</th>
-              <th>Priority</th>
-              <th>Status</th>
-              <th>Assigned To</th>
-              <th>Time Spent (hrs)</th>
-            </tr>
-          </thead>
-
+        <table className="user-table">
           <tbody>
-            {tasks.map((task, index) => (
-              <tr key={task.id || index}>
-                <td>{index + 1}</td>
-                <td>{task.title}</td>
-                <td>{task.priority}</td>
-                <td>{task.status}</td>
-
+            {users.map((user) => (
+              <tr key={user.email} className="user-row">
+                <td>{user.email}</td>
                 <td>
-                  <select
-                    value={task.developer || ""}
-                    onChange={(e) => handleAssignDeveloper(task.id, e.target.value)}
-                  >
-                    <option value="" disabled>
-                      Select Developer
-                    </option>
-
-                    {/* If you store developer as name (Daksh/Chetan...) keep those */}
-                    <option value="Daksh">Daksh</option>
-                    <option value="Chetan">Chetan</option>
-                    <option value="Gaurav">Gaurav</option>
-                    <option value="Shaurya">Shaurya</option>
-                    <option value="Sameeksha">Sameeksha</option>
-                    <option value="Simran">Simran</option>
-
-                    {/* Or assign by actual user emails */}
-                    {devUsers.map((u) => (
-                      <option key={u.email} value={u.email}>
-                        {u.email}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-
-                {/* NOTE: You don’t have a "timeSpentHours" field in your Mongo schema,
-                    so this input is UI-only unless you add a DB field + API update. */}
-                <td>
-                  <input type="number" placeholder="Hours" min="0" disabled />
+                  {/* Show the "Remove" button only for non-ScrumMaster users */}
+                  {!user.email.includes('scrummaster') && (
+                    <button
+                      className="remove-button"
+                      onClick={() => handleDeleteUser(user.email)}
+                    >
+                      Remove
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-      )}
-
-      <div style={{ marginTop: 12 }}>
-        <button onClick={fetchTasks}>Refresh Backlog</button>
-        <button onClick={fetchUsers} style={{ marginLeft: 8 }}>
-          Refresh Users
-        </button>
       </div>
+
+      {/* Product backlog section */}
+      <h2>Product Backlog</h2>
+      <table className="backlog-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Task</th>
+            <th>Priority</th>
+            <th>Status</th>
+            <th>Assigned To</th>
+            <th>Time Spent (hrs)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {tasks.map((task, index) => (
+            <tr key={task.id || index}>
+              <td>{index + 1}</td>
+              <td>{task.title}</td>
+              <td>{task.priority}</td>
+              <td>{task.status}</td>
+              <td>
+                <select defaultValue="">
+                  <option value="" disabled>
+                    Select Developer
+                  </option>
+                  {users.map((user) => (
+                    <option key={user.email} value={user.email}>
+                      {user.email}
+                    </option>
+                  ))}
+                </select>
+              </td>
+              <td>
+                <input type="number" placeholder="Hours" min="0" />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
