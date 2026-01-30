@@ -61,7 +61,7 @@ app.get("/health", (_req, res) => {
 ============================ */
 app.use("/api", authRoutes);
 app.use("/api", backlogRoutes);
-app.use("/api", sprintsRoutes); // ✅ ADD THIS
+app.use("/api", sprintsRoutes); //
 
 app.get("/api/me", requireAuth, (req, res) => {
   res.json({ user: req.user });
