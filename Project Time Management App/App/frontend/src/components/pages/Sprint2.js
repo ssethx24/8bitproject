@@ -11,14 +11,19 @@ const ALLOWED_SPRINT_NAMES = ["Sprint 1", "Sprint 2", "Sprint 3"];
 // Regex for "2w 4d 6h 45m" style input
 const timeFormatRegex = /^(\d+w\s*)?(\d+d\s*)?(\d+h\s*)?(\d+m\s*)?$/;
 
-const Sprint2 = () => {
+const Sprint1 = () => {
   const { theme } = useContext(ThemeContext);
 
   /* ============================
      DB-backed state (NO localStorage)
   ============================ */
   const [sprints, setSprints] = useState([]);
-  const [currentSprint, setCurrentSprint] = useState({
+
+  // ✅ user selects an existing sprint to view/edit backlog
+  const [selectedSprintName, setSelectedSprintName] = useState("");
+
+  // ✅ separate state just for creating/upserting sprint metadata
+  const [draftSprint, setDraftSprint] = useState({
     name: "",
     startDate: "",
     endDate: "",
@@ -90,68 +95,78 @@ const Sprint2 = () => {
   }, []);
 
   /* ============================
-     Load sprint backlog when sprint changes
+     Load sprint backlog when selected sprint changes
   ============================ */
   useEffect(() => {
     (async () => {
       try {
-        await fetchSprintItems(currentSprint.name);
+        await fetchSprintItems(selectedSprintName);
       } catch (err) {
         console.error("❌ Failed to load sprint backlog:", err);
         alert("Failed to load sprint backlog from server.");
       }
     })();
-  }, [currentSprint.name]);
+  }, [selectedSprintName]);
 
   /* ============================
      Sprint CRUD (MongoDB)
   ============================ */
-  const handleFieldChange = (field, value) => {
-    setCurrentSprint((prev) => ({ ...prev, [field]: value }));
+  const handleDraftChange = (field, value) => {
+    setDraftSprint((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleSaveSprint = async () => {
     try {
-      if (!currentSprint.name) {
+      if (!draftSprint.name) {
         alert("Sprint name is required.");
         return;
       }
 
-      if (!ALLOWED_SPRINT_NAMES.includes(currentSprint.name)) {
+      if (!ALLOWED_SPRINT_NAMES.includes(draftSprint.name)) {
         alert("Invalid sprint name. Please select one from Sprint 1/2/3.");
         return;
       }
 
-      if (currentSprint.startDate && currentSprint.endDate) {
-        if (new Date(currentSprint.startDate) > new Date(currentSprint.endDate)) {
+      if (draftSprint.startDate && draftSprint.endDate) {
+        if (new Date(draftSprint.startDate) > new Date(draftSprint.endDate)) {
           alert("Start date cannot be after end date.");
           return;
         }
       }
 
       // UPSERT via backend (PUT)
-      await api.put(`/api/sprints/${encodeURIComponent(currentSprint.name)}`, {
-        startDate: currentSprint.startDate,
-        endDate: currentSprint.endDate,
-        progress: currentSprint.progress,
+      await api.put(`/api/sprints/${encodeURIComponent(draftSprint.name)}`, {
+        startDate: draftSprint.startDate,
+        endDate: draftSprint.endDate,
+        progress: draftSprint.progress,
       });
 
       await fetchSprints();
+
+      // ✅ after creating, auto-select it so backlog view works
+      setSelectedSprintName(draftSprint.name);
+
       alert("✅ Sprint saved to database!");
     } catch (err) {
       console.error("❌ Save sprint failed:", err);
-      alert(
-        `Save sprint failed: ${
-          err?.response?.data?.message || err?.message || "Server error"
-        }`
-      );
+      alert(`Save sprint failed: ${err?.response?.data?.message || err?.message || "Server error"}`);
     }
   };
 
   const handleEditSprint = async (sprintName) => {
     try {
       const res = await api.get(`/api/sprints/${encodeURIComponent(sprintName)}`);
-      setCurrentSprint(res.data);
+
+      // load into draft editor
+      setDraftSprint({
+        name: res.data?.name || sprintName,
+        startDate: res.data?.startDate || "",
+        endDate: res.data?.endDate || "",
+        progress: res.data?.progress || "Not Started",
+      });
+
+      // also select it for backlog view
+      setSelectedSprintName(sprintName);
     } catch (err) {
       console.error("❌ Load sprint failed:", err);
       alert("Failed to load sprint details.");
@@ -166,10 +181,14 @@ const Sprint2 = () => {
       await api.delete(`/api/sprints/${encodeURIComponent(sprintName)}`);
       await fetchSprints();
 
-      // If deleting the currently selected sprint, clear selection + items
-      if (currentSprint.name === sprintName) {
-        setCurrentSprint({ name: "", startDate: "", endDate: "", progress: "Not Started" });
+      if (selectedSprintName === sprintName) {
+        setSelectedSprintName("");
         setSprintBacklog([]);
+      }
+
+      // reset editor if deleting the one you were editing
+      if (draftSprint.name === sprintName) {
+        setDraftSprint({ name: "", startDate: "", endDate: "", progress: "Not Started" });
       }
 
       alert("✅ Sprint deleted.");
@@ -182,8 +201,6 @@ const Sprint2 = () => {
   /* ============================
      Sprint Backlog (MongoDB)
   ============================ */
-
-  // Update a backlog item in DB (status / times / move back to product backlog)
   const updateBacklogItem = async (clientId, patch) => {
     const res = await api.put(`/api/backlog/${encodeURIComponent(clientId)}`, patch);
     return res.data;
@@ -191,9 +208,13 @@ const Sprint2 = () => {
 
   const handleStatusChange = async (id, newStatus) => {
     try {
-      // If marking completed, ask for completion date within sprint date range
+      if (!selectedSprintName) {
+        alert("Please select a sprint first.");
+        return;
+      }
+
       if (newStatus === "Completed") {
-        const sprint = sprints.find((s) => s.name === currentSprint.name);
+        const sprint = sprints.find((s) => s.name === selectedSprintName);
         if (!sprint?.startDate || !sprint?.endDate) {
           alert("Please set sprint start and end dates before completing tasks.");
           return;
@@ -221,7 +242,7 @@ const Sprint2 = () => {
         const updated = await updateBacklogItem(id, {
           status: "Completed",
           completed: true,
-          completionDate, // requires backend field
+          completionDate,
         });
 
         setSprintBacklog((prev) =>
@@ -232,11 +253,10 @@ const Sprint2 = () => {
         return;
       }
 
-      // Non-completed statuses
       const updated = await updateBacklogItem(id, {
         status: newStatus,
         completed: false,
-        completionDate: "", // requires backend field
+        completionDate: "",
       });
 
       setSprintBacklog((prev) =>
@@ -252,7 +272,6 @@ const Sprint2 = () => {
 
   const handleMoveBackToProductBacklog = async (item) => {
     try {
-      // Move out of sprint => sprintName null + reset status
       await updateBacklogItem(item.id, {
         sprintName: null,
         status: "Awaiting Action",
@@ -262,9 +281,7 @@ const Sprint2 = () => {
         estimatedTime: "",
       });
 
-      // Refresh sprint backlog list from server
-      await fetchSprintItems(currentSprint.name);
-
+      await fetchSprintItems(selectedSprintName);
       alert("✅ Moved back to Product Backlog (saved to DB).");
     } catch (err) {
       console.error("❌ Move back failed:", err);
@@ -272,21 +289,19 @@ const Sprint2 = () => {
     }
   };
 
-  // This is called by ProductBacklog after it transfers to sprint.
-  // We just refresh from server so DB is the single source of truth.
   const handleAddToSprintBacklog = async (_item, sprintName) => {
     try {
-      await fetchSprintItems(sprintName);
+      // refresh current view if adding to selected sprint
+      if (sprintName === selectedSprintName) {
+        await fetchSprintItems(sprintName);
+      }
     } catch (err) {
       console.error("❌ Refresh sprint backlog failed:", err);
     }
   };
 
-  // Save estimatedTime/completionTime edits (onBlur)
   const handleTimeChangeLocal = (id, field, value) => {
-    setSprintBacklog((prev) =>
-      prev.map((it) => (it.id === id ? { ...it, [field]: value } : it))
-    );
+    setSprintBacklog((prev) => prev.map((it) => (it.id === id ? { ...it, [field]: value } : it)));
   };
 
   const handleTimeSave = async (id, field, value) => {
@@ -295,7 +310,7 @@ const Sprint2 = () => {
       const ok = validateTimeFormat(value || "", isCompletion);
       if (!ok) return;
 
-      const updated = await updateBacklogItem(id, { [field]: value }); // requires backend field
+      const updated = await updateBacklogItem(id, { [field]: value });
 
       setSprintBacklog((prev) =>
         prev.map((it) =>
@@ -315,9 +330,7 @@ const Sprint2 = () => {
     const list = [...sprints];
     list.sort((a, b) => {
       if (sprintSortCriteria === "name") {
-        return sprintSortOrder === "asc"
-          ? a.name.localeCompare(b.name)
-          : b.name.localeCompare(a.name);
+        return sprintSortOrder === "asc" ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
       }
       if (sprintSortCriteria === "startDate") {
         return sprintSortOrder === "asc"
@@ -357,14 +370,16 @@ const Sprint2 = () => {
     <div className={`sprint-page theme-${theme}`}>
       <h1>Sprint - 1</h1>
 
-      {/* Sprint Details */}
+      {/* ============================
+          CREATE / EDIT SPRINT (does NOT show uncreated sprints)
+      ============================ */}
       <div className="sprint-details">
+        <h2>Create / Edit Sprint</h2>
+
         <div className="field-group">
           <label>Sprint Name: </label>
-          <select
-            value={currentSprint.name}
-            onChange={(e) => handleFieldChange("name", e.target.value)}
-          >
+          {/* ✅ This is ONLY for creation/editing, not for viewing backlog */}
+          <select value={draftSprint.name} onChange={(e) => handleDraftChange("name", e.target.value)}>
             <option value="">-- Select Sprint Name --</option>
             {ALLOWED_SPRINT_NAMES.map((name) => (
               <option key={name} value={name}>
@@ -378,8 +393,8 @@ const Sprint2 = () => {
           <label>Start Date: </label>
           <input
             type="date"
-            value={currentSprint.startDate || ""}
-            onChange={(e) => handleFieldChange("startDate", e.target.value)}
+            value={draftSprint.startDate || ""}
+            onChange={(e) => handleDraftChange("startDate", e.target.value)}
           />
         </div>
 
@@ -387,16 +402,16 @@ const Sprint2 = () => {
           <label>End Date: </label>
           <input
             type="date"
-            value={currentSprint.endDate || ""}
-            onChange={(e) => handleFieldChange("endDate", e.target.value)}
+            value={draftSprint.endDate || ""}
+            onChange={(e) => handleDraftChange("endDate", e.target.value)}
           />
         </div>
 
         <div className="field-group">
           <label>Progress: </label>
           <select
-            value={currentSprint.progress || "Not Started"}
-            onChange={(e) => handleFieldChange("progress", e.target.value)}
+            value={draftSprint.progress || "Not Started"}
+            onChange={(e) => handleDraftChange("progress", e.target.value)}
           >
             <option value="Not Started">Not Started</option>
             <option value="In Progress">In Progress</option>
@@ -407,9 +422,11 @@ const Sprint2 = () => {
         <button onClick={handleSaveSprint}>Save Sprint</button>
       </div>
 
-      {/* Sprints List */}
+      {/* ============================
+          SPRINT LIST (only DB sprints)
+      ============================ */}
       <div className="sprint-list">
-        <h2>Sprints</h2>
+        <h2>Created Sprints</h2>
 
         <div className="sort-controls">
           <label>Sort by:</label>
@@ -427,7 +444,7 @@ const Sprint2 = () => {
         </div>
 
         {sortedSprints.length === 0 ? (
-          <p>No sprints available.</p>
+          <p>No sprints available. Create one above.</p>
         ) : (
           <ul>
             {sortedSprints.map((sprint) => (
@@ -437,6 +454,12 @@ const Sprint2 = () => {
                 <div><strong>End Date:</strong> {sprint.endDate || "-"}</div>
                 <div><strong>Progress:</strong> {sprint.progress || "-"}</div>
 
+                {/* ✅ Select to view backlog */}
+                <button onClick={() => setSelectedSprintName(sprint.name)}>
+                  View Backlog
+                </button>
+
+                {/* Keep your Sprint 1-only edit/delete rule if you want */}
                 {sprint.name === "Sprint 1" && (
                   <>
                     <button onClick={() => handleEditSprint(sprint.name)}>Edit</button>
@@ -449,9 +472,32 @@ const Sprint2 = () => {
         )}
       </div>
 
-      {/* Sprint Backlog */}
+      {/* ============================
+          SELECT SPRINT (only created sprints)
+      ============================ */}
+      <div className="sprint-details">
+        <h2>Select Sprint to View Backlog</h2>
+        <div className="field-group">
+          <label>Sprint: </label>
+          <select
+            value={selectedSprintName}
+            onChange={(e) => setSelectedSprintName(e.target.value)}
+          >
+            <option value="">-- Select Created Sprint --</option>
+            {sprints.map((s) => (
+              <option key={s.name} value={s.name}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* ============================
+          SPRINT BACKLOG
+      ============================ */}
       <div className="backlog-section">
-        <h2>Sprint Backlog for {currentSprint.name || "Select a Sprint"}</h2>
+        <h2>Sprint Backlog for {selectedSprintName || "Select a Sprint"}</h2>
 
         <div className="sort-controls">
           <label>Sort by:</label>
@@ -478,8 +524,8 @@ const Sprint2 = () => {
           </select>
         </div>
 
-        {!currentSprint.name ? (
-          <p>Please select a sprint.</p>
+        {!selectedSprintName ? (
+          <p>Please select a created sprint.</p>
         ) : sortedSprintBacklog.length === 0 ? (
           <p>No items in sprint backlog</p>
         ) : (
@@ -573,10 +619,10 @@ const Sprint2 = () => {
         )}
       </div>
 
-      {/* Product Backlog (already DB-based in your updated version) */}
+      {/* Product Backlog - receives ONLY created sprints (DB) */}
       <ProductBacklog sprints={sprints} onAddToSprintBacklog={handleAddToSprintBacklog} />
     </div>
   );
 };
 
-export default Sprint2;
+export default Sprint1;
