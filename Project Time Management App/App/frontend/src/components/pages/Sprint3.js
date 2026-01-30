@@ -5,12 +5,12 @@ import "./SprintPage.css";
 import { ThemeContext } from "../../contexts/theme-context";
 import { api } from "../../api";
 
-const FIXED_SPRINT_NAME = "Sprint 1";
+const FIXED_SPRINT_NAME = "Sprint 3";
 
 // Regex for "2w 4d 6h 45m"
 const timeFormatRegex = /^(\d+w\s*)?(\d+d\s*)?(\d+h\s*)?(\d+m\s*)?$/;
 
-const Sprint1 = () => {
+const Sprint3 = () => {
   const { theme } = useContext(ThemeContext);
 
   // list of CREATED sprints from DB (only those that exist)
@@ -24,10 +24,10 @@ const Sprint1 = () => {
     progress: "Not Started",
   });
 
-  // whether Sprint 1 actually exists in DB
+  // whether Sprint 3 actually exists in DB
   const [sprintExists, setSprintExists] = useState(false);
 
-  // backlog items for Sprint 1 only
+  // backlog items for Sprint 3 only
   const [sprintBacklog, setSprintBacklog] = useState([]);
 
   // sorting
@@ -55,7 +55,7 @@ const Sprint1 = () => {
   };
 
   // Load Sprint 1 details (if not found -> not created yet)
-  const fetchSprint1 = async () => {
+  const fetchSprint3 = async () => {
     try {
       const res = await api.get(`/api/sprints/${encodeURIComponent(FIXED_SPRINT_NAME)}`);
       setCurrentSprint({
@@ -78,8 +78,8 @@ const Sprint1 = () => {
         setSprintBacklog([]);
         return;
       }
-      console.error("❌ Failed to load Sprint 1:", err);
-      alert("Failed to load Sprint 1 from server.");
+      console.error("❌ Failed to load Sprint 3:", err);
+      alert("Failed to load Sprint 3 from server.");
     }
   };
 
@@ -100,7 +100,7 @@ const Sprint1 = () => {
   useEffect(() => {
     (async () => {
       await fetchSprints();
-      await fetchSprint1();
+      await fetchSprint3();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -132,8 +132,8 @@ const Sprint1 = () => {
       });
 
       await fetchSprints();
-      await fetchSprint1();
-      alert("✅ Sprint 1 created/updated!");
+      await fetchSprint3();
+      alert("✅ Sprint 3 created/updated!");
     } catch (err) {
       console.error("❌ Save sprint failed:", err);
       alert(err?.response?.data?.message || "Save sprint failed");
@@ -147,7 +147,7 @@ const Sprint1 = () => {
 
       await api.delete(`/api/sprints/${encodeURIComponent(FIXED_SPRINT_NAME)}`);
       await fetchSprints();
-      await fetchSprint1(); // will flip sprintExists=false
+      await fetchSprint3(); // will flip sprintExists=false
       alert("✅ Sprint deleted.");
     } catch (err) {
       console.error("❌ Delete sprint failed:", err);
@@ -164,7 +164,7 @@ const Sprint1 = () => {
     try {
       if (newStatus === "Completed") {
         if (!currentSprint.startDate || !currentSprint.endDate) {
-          alert("Set Sprint 1 start/end dates before completing tasks.");
+          alert("Set Sprint 3 start/end dates before completing tasks.");
           return;
         }
 
@@ -197,7 +197,7 @@ const Sprint1 = () => {
         });
       }
 
-      await fetchSprint1Items();
+      await fetchSprint3Items();
     } catch (err) {
       console.error("❌ Status update failed:", err);
       alert("Failed to update status.");
@@ -215,7 +215,7 @@ const Sprint1 = () => {
         estimatedTime: "",
       });
 
-      await fetchSprint1Items();
+      await fetchSprint3Items();
       alert("✅ Moved back to Product Backlog.");
     } catch (err) {
       console.error("❌ Move back failed:", err);
@@ -233,7 +233,7 @@ const Sprint1 = () => {
       if (!ok) return;
 
       await updateBacklogItem(id, { [field]: value });
-      await fetchSprint1Items();
+      await fetchSprint3Items();
     } catch (err) {
       console.error("❌ Save time failed:", err);
       alert("Failed to save time.");
@@ -309,7 +309,7 @@ const Sprint1 = () => {
         <div className="backlog-section">
           <h2>Sprint Backlog</h2>
           <p style={{ color: "crimson" }}>
-            Sprint 1 is not created yet. Please set dates and click <b>Create Sprint</b> first.
+            Sprint 3 is not created yet. Please set dates and click <b>Create Sprint</b> first.
           </p>
         </div>
       ) : (
@@ -342,7 +342,7 @@ const Sprint1 = () => {
           </div>
 
           {sortedSprintBacklog.length === 0 ? (
-            <p>No items in Sprint 1 backlog</p>
+            <p>No items in Sprint 3 backlog</p>
           ) : (
             <table className="backlog-table">
               <thead>
@@ -448,4 +448,4 @@ const Sprint1 = () => {
   );
 };
 
-export default Sprint1;
+export default Sprint3;
