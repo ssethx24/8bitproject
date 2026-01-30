@@ -1,7 +1,7 @@
 import express from "express";
 import Sprint from "../models/Sprint.js";
 import { requireAuth } from "../middleware/auth.js";
-import { getDefaultProjectId } from "../models/defaultProject.js"; // ✅ FIXED PATH
+import { getDefaultProjectId } from "../models/defaultProject.js"; //  FIXED PATH
 
 const router = express.Router();
 
