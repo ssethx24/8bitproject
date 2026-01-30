@@ -1,66 +1,85 @@
-import React, { useState, useEffect, useContext } from 'react';
-import ProductBacklog from './ProductBacklogTeamView';
-import DeleteItem from './DeleteItem'; // Ensure you have this component
-import './SprintPage.css';
-import { ThemeContext } from '../../contexts/theme-context'; // Import the Theme Context
+import React, { useState, useEffect, useContext } from "react";
+import ProductBacklog from "./ProductBacklogTeamView";
+import "./SprintPage.css";
+import { ThemeContext } from "../../contexts/theme-context";
+import { api } from "../../api";
 
 const Sprint1 = () => {
-  const defaultSprintName = '';
-  const allowedSprintNames = ['Sprint 1', 'Sprint 2', 'Sprint 3'];
+  const defaultSprintName = "";
+  const allowedSprintNames = ["Sprint 1", "Sprint 2", "Sprint 3"];
+  const { theme } = useContext(ThemeContext);
 
-  const { theme } = useContext(ThemeContext); // Use the theme from context
-
+  // ✅ Keep sprint metadata local for now
   const [sprints, setSprints] = useState(() => {
-    const savedSprints = localStorage.getItem('sprints');
+    const savedSprints = localStorage.getItem("sprints");
     return savedSprints ? JSON.parse(savedSprints) : [];
   });
 
   const [currentSprint, setCurrentSprint] = useState({
     name: defaultSprintName,
-    startDate: '',
-    endDate: '',
-    progress: 'Not Started',
+    startDate: "",
+    endDate: "",
+    progress: "Not Started",
   });
 
-  const [sprintBacklog, setSprintBacklog] = useState(() => {
-    const savedSprintBacklog = localStorage.getItem('sprintBacklog');
-    return savedSprintBacklog ? JSON.parse(savedSprintBacklog) : [];
-  });
-
-  const [productBacklog, setProductBacklog] = useState(() => {
-    const savedItems = localStorage.getItem('backlogItems');
-    return savedItems ? JSON.parse(savedItems) : [];
-  });
+  // ✅ Sprint backlog from MongoDB
+  const [sprintBacklog, setSprintBacklog] = useState([]);
 
   const [isEditing, setIsEditing] = useState(false);
   const [isBacklogEditing, setIsBacklogEditing] = useState(false);
 
-  // State for sprint sorting
-  const [sprintSortCriteria, setSprintSortCriteria] = useState('name');
-  const [sprintSortOrder, setSprintSortOrder] = useState('asc');
+  // Sprint sorting
+  const [sprintSortCriteria, setSprintSortCriteria] = useState("name");
+  const [sprintSortOrder, setSprintSortOrder] = useState("asc");
 
-  // State for backlog sorting
-  const [backlogSortCriteria, setBacklogSortCriteria] = useState('title');
-  const [backlogSortOrder, setBacklogSortOrder] = useState('asc');
-  const [backlogSortDeveloperOrder, setBacklogSortDeveloperOrder] = useState('asc'); // New state for developer sorting
+  // Backlog sorting
+  const [backlogSortCriteria, setBacklogSortCriteria] = useState("title");
+  const [backlogSortOrder, setBacklogSortOrder] = useState("asc");
+  const [backlogSortDeveloperOrder, setBacklogSortDeveloperOrder] = useState("asc");
 
-  const [estimatedTimeError, setEstimatedTimeError] = useState(''); // State to track input error for estimated time
-  const [completionTimeError, setCompletionTimeError] = useState(''); // State to track input error for completion time
+  const [estimatedTimeError, setEstimatedTimeError] = useState("");
+  const [completionTimeError, setCompletionTimeError] = useState("");
 
   // Regex to match format like "2w 4d 6h 45m"
   const timeFormatRegex = /^(\d+w\s*)?(\d+d\s*)?(\d+h\s*)?(\d+m\s*)?$/;
 
   useEffect(() => {
-    localStorage.setItem('sprints', JSON.stringify(sprints));
+    localStorage.setItem("sprints", JSON.stringify(sprints));
   }, [sprints]);
 
+  // ✅ Load sprint backlog items whenever currentSprint.name changes
   useEffect(() => {
-    localStorage.setItem('sprintBacklog', JSON.stringify(sprintBacklog));
-  }, [sprintBacklog]);
+    const sprintName = currentSprint.name;
+    if (!sprintName) {
+      setSprintBacklog([]);
+      return;
+    }
 
-  useEffect(() => {
-    localStorage.setItem('backlogItems', JSON.stringify(productBacklog));
-  }, [productBacklog]);
+    const loadSprintBacklog = async () => {
+      try {
+        const res = await api.get(`/api/sprints/${encodeURIComponent(sprintName)}/items`);
+
+        const normalized = (res.data || []).map((it) => ({
+          id: it.clientId || it.id || it._id, // keep existing usage item.id
+          title: it.title,
+          priority: it.priority,
+          developer: it.developer || "Daksh",
+          status: it.status || "Awaiting Action",
+          completed: it.completed ?? false,
+          sprint: it.sprintName || sprintName, // keep "sprint" like before
+          estimatedTime: it.estimatedTime || "",
+          completionTime: it.completionTime || "",
+        }));
+
+        setSprintBacklog(normalized);
+      } catch (err) {
+        console.error("❌ Failed to load sprint backlog:", err);
+        alert("Failed to load sprint backlog from server.");
+      }
+    };
+
+    loadSprintBacklog();
+  }, [currentSprint.name]);
 
   const handleFieldChange = (field, value) => {
     const updatedSprint = { ...currentSprint, [field]: value };
@@ -69,18 +88,22 @@ const Sprint1 = () => {
 
   const handleSaveSprint = () => {
     if (!allowedSprintNames.includes(currentSprint.name)) {
-      alert('Invalid sprint name. Please select one from the available options.');
+      alert("Invalid sprint name. Please select one from the available options.");
       return;
     }
 
     const isNameUsed = sprints.some((sprint) => sprint.name === currentSprint.name);
     if (isNameUsed && !isEditing) {
-      alert('This sprint name has already been used. Please choose a different name.');
+      alert("This sprint name has already been used. Please choose a different name.");
       return;
     }
 
-    if (currentSprint.startDate && currentSprint.endDate && currentSprint.startDate > currentSprint.endDate) {
-      alert('Start date cannot be after the end date. Please adjust the dates.');
+    if (
+      currentSprint.startDate &&
+      currentSprint.endDate &&
+      currentSprint.startDate > currentSprint.endDate
+    ) {
+      alert("Start date cannot be after the end date. Please adjust the dates.");
       return;
     }
 
@@ -96,49 +119,92 @@ const Sprint1 = () => {
     setIsEditing(false);
     setCurrentSprint({
       name: defaultSprintName,
-      startDate: '',
-      endDate: '',
-      progress: 'Not Started',
+      startDate: "",
+      endDate: "",
+      progress: "Not Started",
     });
   };
 
-  const handleStatusChange = (id, newStatus) => {
-    const updatedItems = sprintBacklog.map((item) =>
-      item.id === id
-        ? {
-            ...item,
-            status: newStatus,
-            completed: newStatus === 'Completed', // Set completed status based on new status
-          }
-        : item
-    );
-    setSprintBacklog(updatedItems);
-  };
-
-  const handleMoveBackToProductBacklog = (item) => {
-    if (!productBacklog.some((backlogItem) => backlogItem.id === item.id)) {
-      const originalItem = { ...item };
-      originalItem.status = 'Awaiting Action'; // Reset status to Awaiting Action in Product Backlog
-      setProductBacklog([...productBacklog, originalItem]);
-    }
-
-    const updatedSprintBacklog = sprintBacklog.filter((task) => task.id !== item.id);
-    setSprintBacklog(updatedSprintBacklog);
-  };
-
-  const handleAddToSprintBacklog = (item, sprintName) => {
-    if (!sprintBacklog.some((backlogItem) => backlogItem.id === item.id)) {
-      const newSprintBacklogItem = {
-        ...item,
-        sprint: sprintName,
-        status: 'Awaiting Action',
-        estimatedTime: '', // Add estimated time field
-        completionTime: '', // Add completion time field
+  // ✅ Persist status updates to MongoDB
+  const handleStatusChange = async (id, newStatus) => {
+    try {
+      const payload = {
+        status: newStatus,
+        completed: newStatus === "Completed",
       };
-      setSprintBacklog([...sprintBacklog, newSprintBacklogItem]);
 
-      const updatedProductBacklog = productBacklog.filter((backlogItem) => backlogItem.id !== item.id);
-      setProductBacklog(updatedProductBacklog);
+      const res = await api.put(`/api/backlog/${id}`, payload);
+      const updated = res.data;
+
+      setSprintBacklog((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                status: updated.status,
+                completed: updated.completed,
+              }
+            : item
+        )
+      );
+    } catch (err) {
+      console.error("❌ Status update failed:", err);
+      alert("Failed to update status (server error).");
+    }
+  };
+
+  // ✅ Move task back to Product Backlog (MongoDB)
+  const handleMoveBackToProductBacklog = async (item) => {
+    try {
+      await api.put(`/api/backlog/${item.id}`, {
+        sprintName: null,
+        status: "Awaiting Action",
+        completed: false,
+        estimatedTime: "",
+        completionTime: "",
+      });
+
+      // remove from sprint list
+      setSprintBacklog((prev) => prev.filter((x) => x.id !== item.id));
+    } catch (err) {
+      console.error("❌ Move back failed:", err);
+      alert("Failed to move back to Product Backlog.");
+    }
+  };
+
+  // ✅ Called by ProductBacklogTeamView when adding item to sprint
+  const handleAddToSprintBacklog = async (item, sprintName) => {
+    try {
+      const res = await api.put(`/api/backlog/${item.id}`, {
+        sprintName,
+        status: "Awaiting Action",
+        completed: false,
+        estimatedTime: "",
+        completionTime: "",
+      });
+
+      const updated = res.data;
+
+      // Only add to table if the selected sprint matches current sprint
+      if (sprintName === currentSprint.name) {
+        setSprintBacklog((prev) => [
+          ...prev,
+          {
+            id: updated.clientId || updated._id,
+            title: updated.title,
+            priority: updated.priority,
+            developer: updated.developer || "Daksh",
+            status: updated.status || "Awaiting Action",
+            completed: updated.completed ?? false,
+            sprint: updated.sprintName || sprintName,
+            estimatedTime: updated.estimatedTime || "",
+            completionTime: updated.completionTime || "",
+          },
+        ]);
+      }
+    } catch (err) {
+      console.error("❌ Add to sprint failed:", err);
+      alert("Failed to add to sprint (server error).");
     }
   };
 
@@ -155,49 +221,42 @@ const Sprint1 = () => {
     if (currentSprint.name === sprintName) {
       setCurrentSprint({
         name: defaultSprintName,
-        startDate: '',
-        endDate: '',
-        progress: 'Not Started',
+        startDate: "",
+        endDate: "",
+        progress: "Not Started",
       });
     }
   };
 
+  // ✅ In MongoDB mode, "Edit Backlog" is just UI toggling
   const toggleBacklogEditing = () => {
-    if (isBacklogEditing) {
-      localStorage.setItem('sprintBacklog', JSON.stringify(sprintBacklog));
-      alert('Sprint backlog has been saved!');
-    }
-    setIsBacklogEditing(!isBacklogEditing);
+    setIsBacklogEditing((prev) => !prev);
   };
 
   const validateTimeFormat = (time, isCompletion = false) => {
     if (!timeFormatRegex.test(time)) {
-      if (isCompletion) {
-        setCompletionTimeError('Invalid format! Use format: 2w 4d 6h 45m');
-      } else {
-        setEstimatedTimeError('Invalid format! Use format: 2w 4d 6h 45m');
-      }
+      if (isCompletion) setCompletionTimeError("Invalid format! Use format: 2w 4d 6h 45m");
+      else setEstimatedTimeError("Invalid format! Use format: 2w 4d 6h 45m");
     } else {
-      if (isCompletion) {
-        setCompletionTimeError('');
-      } else {
-        setEstimatedTimeError('');
-      }
+      if (isCompletion) setCompletionTimeError("");
+      else setEstimatedTimeError("");
     }
   };
 
-  const filteredSprintBacklog = sprintBacklog.filter(item => item.sprint === currentSprint.name);
+  const filteredSprintBacklog = sprintBacklog.filter((item) => item.sprint === currentSprint.name);
 
-  const sortSprints = (sprints) => {
-    return [...sprints].sort((a, b) => {
-      if (sprintSortCriteria === 'name') {
-        return sprintSortOrder === 'asc' ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
-      } else if (sprintSortCriteria === 'startDate') {
-        return sprintSortOrder === 'asc'
+  const sortSprints = (sprintsList) => {
+    return [...sprintsList].sort((a, b) => {
+      if (sprintSortCriteria === "name") {
+        return sprintSortOrder === "asc"
+          ? a.name.localeCompare(b.name)
+          : b.name.localeCompare(a.name);
+      } else if (sprintSortCriteria === "startDate") {
+        return sprintSortOrder === "asc"
           ? new Date(a.startDate) - new Date(b.startDate)
           : new Date(b.startDate) - new Date(a.startDate);
-      } else if (sprintSortCriteria === 'endDate') {
-        return sprintSortOrder === 'asc'
+      } else if (sprintSortCriteria === "endDate") {
+        return sprintSortOrder === "asc"
           ? new Date(a.endDate) - new Date(b.endDate)
           : new Date(b.endDate) - new Date(a.endDate);
       } else {
@@ -208,14 +267,22 @@ const Sprint1 = () => {
 
   const sortBacklog = (backlog) => {
     return [...backlog].sort((a, b) => {
-      if (backlogSortCriteria === 'title') {
-        return backlogSortOrder === 'asc' ? a.title.localeCompare(b.title) : b.title.localeCompare(a.title);
-      } else if (backlogSortCriteria === 'priority') {
-        return backlogSortOrder === 'asc' ? a.priority.localeCompare(b.priority) : b.priority.localeCompare(a.priority);
-      } else if (backlogSortCriteria === 'status') {
-        return backlogSortOrder === 'asc' ? a.status.localeCompare(b.status) : b.status.localeCompare(a.status);
-      } else if (backlogSortCriteria === 'developer') { // New sorting by developer
-        return backlogSortDeveloperOrder === 'asc' ? a.developer.localeCompare(b.developer) : b.developer.localeCompare(a.developer);
+      if (backlogSortCriteria === "title") {
+        return backlogSortOrder === "asc"
+          ? a.title.localeCompare(b.title)
+          : b.title.localeCompare(a.title);
+      } else if (backlogSortCriteria === "priority") {
+        return backlogSortOrder === "asc"
+          ? a.priority.localeCompare(b.priority)
+          : b.priority.localeCompare(a.priority);
+      } else if (backlogSortCriteria === "status") {
+        return backlogSortOrder === "asc"
+          ? a.status.localeCompare(b.status)
+          : b.status.localeCompare(a.status);
+      } else if (backlogSortCriteria === "developer") {
+        return backlogSortDeveloperOrder === "asc"
+          ? a.developer.localeCompare(b.developer)
+          : b.developer.localeCompare(a.developer);
       } else {
         return 0;
       }
@@ -226,22 +293,19 @@ const Sprint1 = () => {
   const sortedSprintBacklog = sortBacklog(filteredSprintBacklog);
 
   return (
-    <div className={`sprint-page theme-${theme}`}> {/* Apply theme class */}
+    <div className={`sprint-page theme-${theme}`}>
       <h1>Sprint - 1</h1>
 
       <div className="sprint-details">
         <div className="field-group">
           <label>Sprint Name: </label>
-          <select
-            value={currentSprint.name}
-            onChange={(e) => handleFieldChange('name', e.target.value)}
-          >
+          <select value={currentSprint.name} onChange={(e) => handleFieldChange("name", e.target.value)}>
             <option value={defaultSprintName}>{defaultSprintName}</option>
             {allowedSprintNames.map((name) => (
               <option
                 key={name}
                 value={name}
-                disabled={sprints.some(sprint => sprint.name === name && sprint.progress === 'Completed')}
+                disabled={sprints.some((sprint) => sprint.name === name && sprint.progress === "Completed")}
               >
                 {name}
               </option>
@@ -254,7 +318,7 @@ const Sprint1 = () => {
           <input
             type="date"
             value={currentSprint.startDate}
-            onChange={(e) => handleFieldChange('startDate', e.target.value)}
+            onChange={(e) => handleFieldChange("startDate", e.target.value)}
           />
         </div>
 
@@ -263,34 +327,25 @@ const Sprint1 = () => {
           <input
             type="date"
             value={currentSprint.endDate}
-            onChange={(e) => handleFieldChange('endDate', e.target.value)}
+            onChange={(e) => handleFieldChange("endDate", e.target.value)}
           />
         </div>
 
         <div className="field-group">
           <label>Progress: </label>
-          <select
-            value={currentSprint.progress}
-            onChange={(e) => {
-              const newProgress = e.target.value;
-              handleFieldChange('progress', newProgress);
-            }}
-          >
+          <select value={currentSprint.progress} onChange={(e) => handleFieldChange("progress", e.target.value)}>
             <option value="Not Started">Not Started</option>
             <option value="In Progress">In Progress</option>
             <option value="Completed">Completed</option>
           </select>
         </div>
 
-        <button onClick={handleSaveSprint}>
-          {isEditing ? 'Save Modified Details' : 'Save Sprint'}
-        </button>
+        <button onClick={handleSaveSprint}>{isEditing ? "Save Modified Details" : "Save Sprint"}</button>
       </div>
 
       <div className="sprint-list">
         <h2>Sprints</h2>
 
-        {/* Sorting Controls for Sprints */}
         <div className="sort-controls">
           <label htmlFor="sprint-sort-criteria">Sort by:</label>
           <select
@@ -324,8 +379,8 @@ const Sprint1 = () => {
                 <div><strong>Start Date:</strong> {sprint.startDate}</div>
                 <div><strong>End Date:</strong> {sprint.endDate}</div>
                 <div><strong>Progress:</strong> {sprint.progress}</div>
-                {/* Only show Edit and Delete buttons for "Sprint 1" */}
-                {sprint.name === 'Sprint 1' && (
+
+                {sprint.name === "Sprint 1" && (
                   <>
                     <button onClick={() => handleEditSprint(sprint.name)}>Edit</button>
                     <button onClick={() => handleDeleteSprint(sprint.name)}>Delete</button>
@@ -340,7 +395,6 @@ const Sprint1 = () => {
       <div className="backlog-section">
         <h2>Sprint Backlog for {currentSprint.name}</h2>
 
-        {/* Sorting Controls for Backlog */}
         <div className="sort-controls">
           <label htmlFor="backlog-sort-criteria">Sort by:</label>
           <select
@@ -351,7 +405,7 @@ const Sprint1 = () => {
             <option value="title">Title</option>
             <option value="priority">Priority</option>
             <option value="status">Status</option>
-            <option value="developer">Developer</option> {/* Added sorting by developer */}
+            <option value="developer">Developer</option>
           </select>
 
           <label htmlFor="backlog-sort-order">Order:</label>
@@ -364,7 +418,6 @@ const Sprint1 = () => {
             <option value="desc">Descending</option>
           </select>
 
-          {/* Additional Sorting for Developer */}
           <label htmlFor="backlog-sort-developer-order">Developer Order:</label>
           <select
             id="backlog-sort-developer-order"
@@ -385,9 +438,9 @@ const Sprint1 = () => {
                 <th>Task</th>
                 <th>Priority</th>
                 <th>Status</th>
-                <th>Developer</th> {/* New column for Developer */}
-                <th>Estimated Time</th> {/* New column for estimated time */}
-                <th>Completion Time</th> {/* New column for completion time */}
+                <th>Developer</th>
+                <th>Estimated Time</th>
+                <th>Completion Time</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -396,20 +449,21 @@ const Sprint1 = () => {
                 <tr
                   key={item.id}
                   className={
-                    item.status === 'Awaiting Action'
-                      ? 'awaiting-action'
-                      : item.status === 'Under Development'
-                      ? 'in-progress'
-                      : item.status === 'Completed'
-                      ? 'completed'
-                      : ''
+                    item.status === "Awaiting Action"
+                      ? "awaiting-action"
+                      : item.status === "Under Development"
+                      ? "in-progress"
+                      : item.status === "Completed"
+                      ? "completed"
+                      : ""
                   }
                 >
                   <td>{item.title}</td>
                   <td>{item.priority}</td>
+
                   <td>
                     <select
-                      value={item.completed ? 'Completed' : item.status} // Show "Completed" or current status
+                      value={item.completed ? "Completed" : item.status}
                       onChange={(e) => handleStatusChange(item.id, e.target.value)}
                     >
                       <option value="Awaiting Action">Awaiting Action</option>
@@ -417,52 +471,59 @@ const Sprint1 = () => {
                       <option value="Completed">Completed</option>
                     </select>
                   </td>
-                  <td>{item.developer}</td> {/* Display developer name */}
+
+                  <td>{item.developer}</td>
+
                   <td>
-                    {item.status === 'Awaiting Action' && (
+                    {item.status === "Awaiting Action" && (
                       <>
                         <input
                           type="text"
                           placeholder="Estimated Time (e.g. 2w 4d 6h 45m)"
-                          value={item.estimatedTime || ''}
-                          onChange={(e) => {
-                            const updatedItem = { ...item, estimatedTime: e.target.value };
-                            validateTimeFormat(e.target.value); // Validate input
+                          value={item.estimatedTime || ""}
+                          onChange={async (e) => {
+                            const v = e.target.value;
+                            validateTimeFormat(v);
+
                             setSprintBacklog((prev) =>
-                              prev.map((backlogItem) =>
-                                backlogItem.id === item.id ? updatedItem : backlogItem
-                              )
+                              prev.map((x) => (x.id === item.id ? { ...x, estimatedTime: v } : x))
                             );
+
+                            // ✅ Persist to MongoDB
+                            await api.put(`/api/backlog/${item.id}`, { estimatedTime: v });
                           }}
                         />
                         {estimatedTimeError && <span className="error-message">{estimatedTimeError}</span>}
                       </>
                     )}
                   </td>
+
                   <td>
-                    {item.status === 'Completed' && (
+                    {item.status === "Completed" && (
                       <>
                         <input
                           type="text"
                           placeholder="Completion Time (e.g. 2w 4d 6h 45m)"
-                          value={item.completionTime || ''}
-                          onChange={(e) => {
-                            const updatedItem = { ...item, completionTime: e.target.value };
-                            validateTimeFormat(e.target.value, true); // Validate input for completion
+                          value={item.completionTime || ""}
+                          onChange={async (e) => {
+                            const v = e.target.value;
+                            validateTimeFormat(v, true);
+
                             setSprintBacklog((prev) =>
-                              prev.map((backlogItem) =>
-                                backlogItem.id === item.id ? updatedItem : backlogItem
-                              )
+                              prev.map((x) => (x.id === item.id ? { ...x, completionTime: v } : x))
                             );
+
+                            // ✅ Persist to MongoDB
+                            await api.put(`/api/backlog/${item.id}`, { completionTime: v });
                           }}
                         />
                         {completionTimeError && <span className="error-message">{completionTimeError}</span>}
                       </>
                     )}
                   </td>
+
                   <td>
-                    {/* Show Move to PB button only if status is "Awaiting Action" */}
-                    {item.status === 'Awaiting Action' && (
+                    {item.status === "Awaiting Action" && (
                       <button onClick={() => handleMoveBackToProductBacklog(item)}>
                         Move to Product Backlog
                       </button>
@@ -476,13 +537,10 @@ const Sprint1 = () => {
       </div>
 
       <button onClick={toggleBacklogEditing}>
-        {isBacklogEditing ? 'Save Sprint Backlog' : 'Edit Backlog'}
+        {isBacklogEditing ? "Stop Editing" : "Edit Backlog"}
       </button>
 
-      <ProductBacklog
-        sprints={sprints}
-        onAddToSprintBacklog={handleAddToSprintBacklog}
-      />
+      <ProductBacklog sprints={sprints} onAddToSprintBacklog={handleAddToSprintBacklog} />
     </div>
   );
 };
