@@ -1,4 +1,3 @@
-// src/components/pages/Sprint2.js
 import React, { useEffect, useMemo, useState, useContext } from "react";
 import ProductBacklog from "./ProductBacklog";
 import "./SprintPage.css";
@@ -6,8 +5,6 @@ import { ThemeContext } from "../../contexts/theme-context";
 import { api } from "../../api";
 
 const FIXED_SPRINT_NAME = "Sprint 2";
-
-// Regex for "2w 4d 6h 45m"
 const timeFormatRegex = /^(\d+w\s*)?(\d+d\s*)?(\d+h\s*)?(\d+m\s*)?$/;
 
 const Sprint2 = () => {
@@ -23,7 +20,7 @@ const Sprint2 = () => {
   });
 
   const [sprintExists, setSprintExists] = useState(false);
-  const [loadingSprint, setLoadingSprint] = useState(true);
+  const [checkingSprint, setCheckingSprint] = useState(true);
 
   const [sprintBacklog, setSprintBacklog] = useState([]);
 
@@ -51,7 +48,7 @@ const Sprint2 = () => {
   };
 
   const fetchSprint = async () => {
-    setLoadingSprint(true);
+    setCheckingSprint(true);
     try {
       const res = await api.get(`/api/sprints/${encodeURIComponent(FIXED_SPRINT_NAME)}`);
       setCurrentSprint({
@@ -71,12 +68,12 @@ const Sprint2 = () => {
           progress: "Not Started",
         });
         setSprintBacklog([]);
-      } else {
-        console.error(`❌ Failed to load ${FIXED_SPRINT_NAME}:`, err);
-        alert(`Failed to load ${FIXED_SPRINT_NAME} from server.`);
+        return;
       }
+      console.error("❌ Failed to load Sprint 2:", err);
+      alert("Failed to load Sprint 2 from server.");
     } finally {
-      setLoadingSprint(false);
+      setCheckingSprint(false);
     }
   };
 
@@ -104,12 +101,10 @@ const Sprint2 = () => {
 
   useEffect(() => {
     (async () => {
-      if (!loadingSprint) {
-        await fetchSprintItems();
-      }
+      await fetchSprintItems();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sprintExists, loadingSprint]);
+  }, [sprintExists]);
 
   const handleFieldChange = (field, value) => {
     setCurrentSprint((prev) => ({ ...prev, [field]: value }));
@@ -132,7 +127,7 @@ const Sprint2 = () => {
 
       await fetchSprints();
       await fetchSprint();
-      alert(`✅ ${sprintExists ? "Sprint updated!" : "Sprint created!"}`);
+      alert("✅ Sprint 2 created/updated!");
     } catch (err) {
       console.error("❌ Save sprint failed:", err);
       alert(err?.response?.data?.message || "Save sprint failed");
@@ -163,7 +158,7 @@ const Sprint2 = () => {
     try {
       if (newStatus === "Completed") {
         if (!currentSprint.startDate || !currentSprint.endDate) {
-          alert(`Set ${FIXED_SPRINT_NAME} start/end dates before completing tasks.`);
+          alert("Set Sprint 2 start/end dates before completing tasks.");
           return;
         }
 
@@ -183,17 +178,9 @@ const Sprint2 = () => {
           return;
         }
 
-        await updateBacklogItem(id, {
-          status: "Completed",
-          completed: true,
-          completionDate,
-        });
+        await updateBacklogItem(id, { status: "Completed", completed: true, completionDate });
       } else {
-        await updateBacklogItem(id, {
-          status: newStatus,
-          completed: false,
-          completionDate: "",
-        });
+        await updateBacklogItem(id, { status: newStatus, completed: false, completionDate: "" });
       }
 
       await fetchSprintItems();
@@ -254,6 +241,15 @@ const Sprint2 = () => {
     return list;
   }, [sprintBacklog, backlogSortCriteria, backlogSortOrder, backlogSortDeveloperOrder]);
 
+  if (checkingSprint) {
+    return (
+      <div className={`sprint-page theme-${theme}`}>
+        <h1>{FIXED_SPRINT_NAME}</h1>
+        <p>Loading sprint...</p>
+      </div>
+    );
+  }
+
   return (
     <div className={`sprint-page theme-${theme}`}>
       <h1>{FIXED_SPRINT_NAME}</h1>
@@ -270,7 +266,6 @@ const Sprint2 = () => {
             type="date"
             value={currentSprint.startDate || ""}
             onChange={(e) => handleFieldChange("startDate", e.target.value)}
-            disabled={loadingSprint}
           />
         </div>
 
@@ -280,7 +275,6 @@ const Sprint2 = () => {
             type="date"
             value={currentSprint.endDate || ""}
             onChange={(e) => handleFieldChange("endDate", e.target.value)}
-            disabled={loadingSprint}
           />
         </div>
 
@@ -289,7 +283,6 @@ const Sprint2 = () => {
           <select
             value={currentSprint.progress || "Not Started"}
             onChange={(e) => handleFieldChange("progress", e.target.value)}
-            disabled={loadingSprint}
           >
             <option value="Not Started">Not Started</option>
             <option value="In Progress">In Progress</option>
@@ -297,24 +290,15 @@ const Sprint2 = () => {
           </select>
         </div>
 
-        {loadingSprint ? (
-          <p>Loading...</p>
-        ) : (
-          <>
-            <button onClick={handleSaveSprint}>
-              {sprintExists ? "Update Sprint" : "Create Sprint"}
-            </button>
-
-            {sprintExists && (
-              <button onClick={handleDeleteSprint} style={{ marginLeft: 10 }}>
-                Delete Sprint
-              </button>
-            )}
-          </>
+        <button onClick={handleSaveSprint}>{sprintExists ? "Update Sprint" : "Create Sprint"}</button>
+        {sprintExists && (
+          <button onClick={handleDeleteSprint} style={{ marginLeft: 10 }}>
+            Delete Sprint
+          </button>
         )}
       </div>
 
-      {loadingSprint ? null : !sprintExists ? (
+      {!sprintExists ? (
         <div className="backlog-section">
           <h2>Sprint Backlog</h2>
           <p style={{ color: "crimson" }}>
