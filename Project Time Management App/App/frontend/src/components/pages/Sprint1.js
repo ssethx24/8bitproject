@@ -13,8 +13,10 @@ const timeFormatRegex = /^(\d+w\s*)?(\d+d\s*)?(\d+h\s*)?(\d+m\s*)?$/;
 const Sprint1 = () => {
   const { theme } = useContext(ThemeContext);
 
+  // list of CREATED sprints from DB (only those that exist)
   const [sprints, setSprints] = useState([]);
 
+  // this page is locked to Sprint 1
   const [currentSprint, setCurrentSprint] = useState({
     name: FIXED_SPRINT_NAME,
     startDate: "",
@@ -22,13 +24,13 @@ const Sprint1 = () => {
     progress: "Not Started",
   });
 
+  // whether Sprint 1 actually exists in DB
   const [sprintExists, setSprintExists] = useState(false);
 
-  // ✅ NEW: prevents flicker (we don't decide UI until server check finishes)
-  const [checked, setChecked] = useState(false);
-
+  // backlog items for Sprint 1 only
   const [sprintBacklog, setSprintBacklog] = useState([]);
 
+  // sorting
   const [backlogSortCriteria, setBacklogSortCriteria] = useState("title");
   const [backlogSortOrder, setBacklogSortOrder] = useState("asc");
   const [backlogSortDeveloperOrder, setBacklogSortDeveloperOrder] = useState("asc");
@@ -52,36 +54,32 @@ const Sprint1 = () => {
     setSprints(res.data || []);
   };
 
-  // ✅ Load Sprint 1 details (404 = not created)
+  // Load Sprint 1 details (if not found -> not created yet)
   const fetchSprint1 = async () => {
     try {
       const res = await api.get(`/api/sprints/${encodeURIComponent(FIXED_SPRINT_NAME)}`);
-
       setCurrentSprint({
         name: FIXED_SPRINT_NAME,
         startDate: res.data?.startDate || "",
         endDate: res.data?.endDate || "",
         progress: res.data?.progress || "Not Started",
       });
-
       setSprintExists(true);
     } catch (err) {
       if (err?.response?.status === 404) {
         setSprintExists(false);
-        setCurrentSprint({
+        setCurrentSprint((p) => ({
+          ...p,
           name: FIXED_SPRINT_NAME,
           startDate: "",
           endDate: "",
           progress: "Not Started",
-        });
+        }));
         setSprintBacklog([]);
-      } else {
-        console.error("❌ Failed to load Sprint 1:", err);
-        alert("Failed to load Sprint 1 from server.");
+        return;
       }
-    } finally {
-      // ✅ This ends the flicker (UI is decided only after this)
-      setChecked(true);
+      console.error("❌ Failed to load Sprint 1:", err);
+      alert("Failed to load Sprint 1 from server.");
     }
   };
 
@@ -90,15 +88,12 @@ const Sprint1 = () => {
       setSprintBacklog([]);
       return;
     }
-
     const res = await api.get(`/api/sprints/${encodeURIComponent(FIXED_SPRINT_NAME)}/items`);
-
     const normalized = (res.data || []).map((it) => ({
       ...it,
       id: it.clientId || it.id || it._id,
       sprint: it.sprintName || FIXED_SPRINT_NAME,
     }));
-
     setSprintBacklog(normalized);
   };
 
@@ -136,16 +131,12 @@ const Sprint1 = () => {
         progress: currentSprint.progress,
       });
 
-      // re-check existence after save
-      setChecked(false);
       await fetchSprints();
       await fetchSprint1();
-
-      alert(`✅ ${sprintExists ? "Sprint updated!" : "Sprint created!"}`);
+      alert("✅ Sprint 1 created/updated!");
     } catch (err) {
       console.error("❌ Save sprint failed:", err);
       alert(err?.response?.data?.message || "Save sprint failed");
-      setChecked(true);
     }
   };
 
@@ -155,16 +146,12 @@ const Sprint1 = () => {
       if (!ok) return;
 
       await api.delete(`/api/sprints/${encodeURIComponent(FIXED_SPRINT_NAME)}`);
-
-      setChecked(false);
       await fetchSprints();
-      await fetchSprint1();
-
+      await fetchSprint1(); // will flip sprintExists=false
       alert("✅ Sprint deleted.");
     } catch (err) {
       console.error("❌ Delete sprint failed:", err);
       alert("Failed to delete sprint.");
-      setChecked(true);
     }
   };
 
@@ -272,7 +259,7 @@ const Sprint1 = () => {
     <div className={`sprint-page theme-${theme}`}>
       <h1>{FIXED_SPRINT_NAME}</h1>
 
-      {/* Sprint Details always visible (no flicker UI messages) */}
+      {/* Sprint Details */}
       <div className="sprint-details">
         <div className="field-group">
           <label>Sprint Name: </label>
@@ -309,27 +296,23 @@ const Sprint1 = () => {
           </select>
         </div>
 
-        {/* ✅ Button text only decided after checked */}
-        <button onClick={handleSaveSprint} disabled={!checked}>
-          {!checked ? "Create Sprint" : sprintExists ? "Update Sprint" : "Create Sprint"}
-        </button>
-
-        {checked && sprintExists && (
+        <button onClick={handleSaveSprint}>{sprintExists ? "Update Sprint" : "Create Sprint"}</button>
+        {sprintExists && (
           <button onClick={handleDeleteSprint} style={{ marginLeft: 10 }}>
             Delete Sprint
           </button>
         )}
       </div>
 
-      {/* ✅ No “not created yet” message until checked is true */}
-      {checked && !sprintExists ? (
+      {/* IMPORTANT: If sprint not created, block backlog + adding */}
+      {!sprintExists ? (
         <div className="backlog-section">
           <h2>Sprint Backlog</h2>
           <p style={{ color: "crimson" }}>
             Sprint 1 is not created yet. Please set dates and click <b>Create Sprint</b> first.
           </p>
         </div>
-      ) : checked && sprintExists ? (
+      ) : (
         <div className="backlog-section">
           <h2>Sprint Backlog for {FIXED_SPRINT_NAME}</h2>
 
@@ -412,9 +395,7 @@ const Sprint1 = () => {
                             type="text"
                             placeholder="2w 4d 6h 45m"
                             value={item.estimatedTime || ""}
-                            onChange={(e) =>
-                              handleTimeChangeLocal(item.id, "estimatedTime", e.target.value)
-                            }
+                            onChange={(e) => handleTimeChangeLocal(item.id, "estimatedTime", e.target.value)}
                             onBlur={(e) => handleTimeSave(item.id, "estimatedTime", e.target.value)}
                           />
                           {estimatedTimeError && <span className="error-message">{estimatedTimeError}</span>}
@@ -429,9 +410,7 @@ const Sprint1 = () => {
                             type="text"
                             placeholder="2w 4d 6h 45m"
                             value={item.completionTime || ""}
-                            onChange={(e) =>
-                              handleTimeChangeLocal(item.id, "completionTime", e.target.value)
-                            }
+                            onChange={(e) => handleTimeChangeLocal(item.id, "completionTime", e.target.value)}
                             onBlur={(e) => handleTimeSave(item.id, "completionTime", e.target.value)}
                           />
                           {completionTimeError && <span className="error-message">{completionTimeError}</span>}
@@ -454,13 +433,13 @@ const Sprint1 = () => {
             </table>
           )}
         </div>
-      ) : null}
+      )}
 
-      {/* Product Backlog locked to Sprint 1 */}
+      {/* Product Backlog should only allow adding to Sprint 1 on this page */}
       <ProductBacklog
-        sprints={sprints}
-        fixedSprintName={FIXED_SPRINT_NAME}
-        sprintExists={checked && sprintExists}
+        sprints={sprints}                 // DB-created only
+        fixedSprintName={FIXED_SPRINT_NAME} // lock add-to-sprint
+        sprintExists={sprintExists}       // block adding if not created
         onAddToSprintBacklog={async () => {
           await fetchSprint1Items();
         }}
