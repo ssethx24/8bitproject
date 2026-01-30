@@ -17,30 +17,30 @@ const Charts = () => {
   const [actualHours, setActualHours] = useState([]);
 
   const [activeTab, setActiveTab] = useState("sprint-review");
-  const [loading, setLoading] = useState(true);
 
-  /* ============================
-     Load Sprints from MongoDB
-  ============================ */
+  /* Load Sprints from MongoDB*/
   useEffect(() => {
     const loadSprints = async () => {
       try {
         const res = await api.get("/api/sprints");
-        setSprints(res.data || []);
+        const list = res.data || [];
+        setSprints(list);
+
+
+        if (!selectedSprint && list.length > 0) {
+          setSelectedSprint(list[0].name);
+        }
       } catch (err) {
         console.error("❌ Failed to load sprints:", err);
-        alert("Failed to load sprints from server.");
-      } finally {
-        setLoading(false);
+        // no loading UI, so keep this silent or use a small toast/alert if you want
       }
     };
 
     loadSprints();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ============================
-     Load Sprint Backlog when sprint changes
-  ============================ */
+  /* Load Sprint Backlog when sprint changes*/
   useEffect(() => {
     if (!selectedSprint) {
       setSprintBacklog([]);
@@ -82,16 +82,13 @@ const Charts = () => {
         setActualHours([totalActual]);
       } catch (err) {
         console.error("❌ Failed to load sprint backlog:", err);
-        alert("Failed to load sprint backlog from server.");
       }
     };
 
     loadSprintBacklog();
   }, [selectedSprint]);
 
-  /* ============================
-     Helpers
-  ============================ */
+  /* Helpers*/
   const parseTimeToHours = (timeStr) => {
     if (!timeStr) return 0;
 
@@ -115,10 +112,6 @@ const Charts = () => {
   const handleTabChange = (tabName) => {
     setActiveTab(tabName);
   };
-
-  if (loading) {
-    return <div className={`charts-page theme-${theme}`}>Loading charts…</div>;
-  }
 
   return (
     <div className={`charts-page theme-${theme}`}>
