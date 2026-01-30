@@ -83,7 +83,7 @@ const Sprint3 = () => {
     }
   };
 
-  const fetchSprint1Items = async () => {
+  const fetchSprint3Items = async () => {
     if (!sprintExists) {
       setSprintBacklog([]);
       return;
@@ -107,7 +107,7 @@ const Sprint3 = () => {
 
   useEffect(() => {
     (async () => {
-      await fetchSprint1Items();
+      await fetchSprint3Items();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sprintExists]);
@@ -441,7 +441,7 @@ const Sprint3 = () => {
         fixedSprintName={FIXED_SPRINT_NAME} // lock add-to-sprint
         sprintExists={sprintExists}       // block adding if not created
         onAddToSprintBacklog={async () => {
-          await fetchSprint1Items();
+          await fetchSprint3Items();
         }}
       />
     </div>
