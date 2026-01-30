@@ -442,7 +442,7 @@ const ALLOWED_SPRINT_NAMES = ["Sprint 1", "Sprint 2", "Sprint 3"];
 const timeFormatRegex = /^(\d+w\s*)?(\d+d\s*)?(\d+h\s*)?(\d+m\s*)?$/;
 
 const Sprint1 = () => {
-  const { theme } = useContext(ThemeContext);
+const { theme } = useContext(ThemeContext);
 
   /* ============================
      DB-backed state (NO localStorage)
