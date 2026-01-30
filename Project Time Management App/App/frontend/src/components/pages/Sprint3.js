@@ -1,4 +1,4 @@
-// src/components/pages/Sprint1.js
+// src/components/pages/Sprint3.js
 import React, { useEffect, useMemo, useState, useContext } from "react";
 import ProductBacklog from "./ProductBacklog";
 import "./SprintPage.css";
@@ -6,17 +6,12 @@ import { ThemeContext } from "../../contexts/theme-context";
 import { api } from "../../api";
 
 const FIXED_SPRINT_NAME = "Sprint 3";
-
-// Regex for "2w 4d 6h 45m"
 const timeFormatRegex = /^(\d+w\s*)?(\d+d\s*)?(\d+h\s*)?(\d+m\s*)?$/;
 
-const Sprint1 = () => {
+const Sprint3 = () => {
   const { theme } = useContext(ThemeContext);
 
-  // list of CREATED sprints from DB (only those that exist)
   const [sprints, setSprints] = useState([]);
-
-  // this page is locked to Sprint 1
   const [currentSprint, setCurrentSprint] = useState({
     name: FIXED_SPRINT_NAME,
     startDate: "",
@@ -24,13 +19,9 @@ const Sprint1 = () => {
     progress: "Not Started",
   });
 
-  // whether Sprint 1 actually exists in DB
   const [sprintExists, setSprintExists] = useState(false);
-
-  // backlog items for Sprint 1 only
   const [sprintBacklog, setSprintBacklog] = useState([]);
 
-  // sorting
   const [backlogSortCriteria, setBacklogSortCriteria] = useState("title");
   const [backlogSortOrder, setBacklogSortOrder] = useState("asc");
   const [backlogSortDeveloperOrder, setBacklogSortDeveloperOrder] = useState("asc");
@@ -54,8 +45,7 @@ const Sprint1 = () => {
     setSprints(res.data || []);
   };
 
-  // Load Sprint 1 details (if not found -> not created yet)
-  const fetchSprint1 = async () => {
+  const fetchSprintDetails = async () => {
     try {
       const res = await api.get(`/api/sprints/${encodeURIComponent(FIXED_SPRINT_NAME)}`);
       setCurrentSprint({
@@ -68,22 +58,21 @@ const Sprint1 = () => {
     } catch (err) {
       if (err?.response?.status === 404) {
         setSprintExists(false);
-        setCurrentSprint((p) => ({
-          ...p,
+        setCurrentSprint({
           name: FIXED_SPRINT_NAME,
           startDate: "",
           endDate: "",
           progress: "Not Started",
-        }));
+        });
         setSprintBacklog([]);
         return;
       }
-      console.error("❌ Failed to load Sprint 1:", err);
-      alert("Failed to load Sprint 1 from server.");
+      console.error("❌ Failed to load Sprint 3:", err);
+      alert("Failed to load Sprint 3 from server.");
     }
   };
 
-  const fetchSprint1Items = async () => {
+  const fetchSprintItems = async () => {
     if (!sprintExists) {
       setSprintBacklog([]);
       return;
@@ -100,14 +89,14 @@ const Sprint1 = () => {
   useEffect(() => {
     (async () => {
       await fetchSprints();
-      await fetchSprint1();
+      await fetchSprintDetails();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     (async () => {
-      await fetchSprint1Items();
+      await fetchSprintItems();
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sprintExists]);
@@ -132,8 +121,8 @@ const Sprint1 = () => {
       });
 
       await fetchSprints();
-      await fetchSprint1();
-      alert("✅ Sprint 1 created/updated!");
+      await fetchSprintDetails();
+      alert("✅ Sprint 3 created/updated!");
     } catch (err) {
       console.error("❌ Save sprint failed:", err);
       alert(err?.response?.data?.message || "Save sprint failed");
@@ -147,7 +136,7 @@ const Sprint1 = () => {
 
       await api.delete(`/api/sprints/${encodeURIComponent(FIXED_SPRINT_NAME)}`);
       await fetchSprints();
-      await fetchSprint1(); // will flip sprintExists=false
+      await fetchSprintDetails();
       alert("✅ Sprint deleted.");
     } catch (err) {
       console.error("❌ Delete sprint failed:", err);
@@ -164,7 +153,7 @@ const Sprint1 = () => {
     try {
       if (newStatus === "Completed") {
         if (!currentSprint.startDate || !currentSprint.endDate) {
-          alert("Set Sprint 1 start/end dates before completing tasks.");
+          alert("Set Sprint 3 start/end dates before completing tasks.");
           return;
         }
 
@@ -197,7 +186,7 @@ const Sprint1 = () => {
         });
       }
 
-      await fetchSprint1Items();
+      await fetchSprintItems();
     } catch (err) {
       console.error("❌ Status update failed:", err);
       alert("Failed to update status.");
@@ -215,7 +204,7 @@ const Sprint1 = () => {
         estimatedTime: "",
       });
 
-      await fetchSprint1Items();
+      await fetchSprintItems();
       alert("✅ Moved back to Product Backlog.");
     } catch (err) {
       console.error("❌ Move back failed:", err);
@@ -233,7 +222,7 @@ const Sprint1 = () => {
       if (!ok) return;
 
       await updateBacklogItem(id, { [field]: value });
-      await fetchSprint1Items();
+      await fetchSprintItems();
     } catch (err) {
       console.error("❌ Save time failed:", err);
       alert("Failed to save time.");
@@ -259,7 +248,6 @@ const Sprint1 = () => {
     <div className={`sprint-page theme-${theme}`}>
       <h1>{FIXED_SPRINT_NAME}</h1>
 
-      {/* Sprint Details */}
       <div className="sprint-details">
         <div className="field-group">
           <label>Sprint Name: </label>
@@ -304,12 +292,11 @@ const Sprint1 = () => {
         )}
       </div>
 
-      {/* IMPORTANT: If sprint not created, block backlog + adding */}
       {!sprintExists ? (
         <div className="backlog-section">
           <h2>Sprint Backlog</h2>
           <p style={{ color: "crimson" }}>
-            Sprint 1 is not created yet. Please set dates and click <b>Create Sprint</b> first.
+            Sprint 3 is not created yet. Please set dates and click <b>Create Sprint</b> first.
           </p>
         </div>
       ) : (
@@ -342,7 +329,7 @@ const Sprint1 = () => {
           </div>
 
           {sortedSprintBacklog.length === 0 ? (
-            <p>No items in Sprint 1 backlog</p>
+            <p>No items in Sprint 3 backlog</p>
           ) : (
             <table className="backlog-table">
               <thead>
@@ -435,17 +422,16 @@ const Sprint1 = () => {
         </div>
       )}
 
-      {/* Product Backlog should only allow adding to Sprint 1 on this page */}
       <ProductBacklog
-        sprints={sprints}                 // DB-created only
-        fixedSprintName={FIXED_SPRINT_NAME} // lock add-to-sprint
-        sprintExists={sprintExists}       // block adding if not created
+        sprints={sprints}
+        fixedSprintName={FIXED_SPRINT_NAME}
+        sprintExists={sprintExists}
         onAddToSprintBacklog={async () => {
-          await fetchSprint1Items();
+          await fetchSprintItems();
         }}
       />
     </div>
   );
 };
 
-export default Sprint1;
+export default Sprint3;
