@@ -240,14 +240,14 @@ const Sprint3 = () => {
     return list;
   }, [sprintBacklog, backlogSortCriteria, backlogSortOrder, backlogSortDeveloperOrder]);
 
-  if (checkingSprint) {
-    return (
-      <div className={`sprint-page theme-${theme}`}>
-        <h1>{FIXED_SPRINT_NAME}</h1>
-        <p>Loading sprint...</p>
-      </div>
-    );
-  }
+//  if (checkingSprint) {
+//    return (
+//      <div className={`sprint-page theme-${theme}`}>
+//        <h1>{FIXED_SPRINT_NAME}</h1>
+//        <p>Loading sprint...</p>
+//      </div>
+//    );
+//  }
 
   return (
     <div className={`sprint-page theme-${theme}`}>
