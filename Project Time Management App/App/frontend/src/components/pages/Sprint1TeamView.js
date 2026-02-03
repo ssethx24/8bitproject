@@ -4,14 +4,14 @@ import "./SprintPage.css";
 import { ThemeContext } from "../../contexts/theme-context";
 import { api } from "../../api";
 
-const ALLOWED_SPRINT_NAMES = ["Sprint 1", "Sprint 2", "Sprint 3"];
+const FIXED_SPRINT_NAME = "Sprint 1";
+
+// Regex for "2w 4d 6h 45m"
+const timeFormatRegex = /^(\d+w\s*)?(\d+d\s*)?(\d+h\s*)?(\d+m\s*)?$/;
 
 const Sprint1TeamView = () => {
   const { theme } = useContext(ThemeContext);
 
-  /* ============================
-     DB-backed state ONLY
-  ============================ */
   const [sprints, setSprints] = useState([]);
 
   const [currentSprint, setCurrentSprint] = useState({
@@ -23,15 +23,17 @@ const Sprint1TeamView = () => {
 
   const [sprintBacklog, setSprintBacklog] = useState([]);
 
-  /* ============================
-     Sorting state
-  ============================ */
+  // sorting
   const [backlogSortCriteria, setBacklogSortCriteria] = useState("title");
   const [backlogSortOrder, setBacklogSortOrder] = useState("asc");
   const [backlogSortDeveloperOrder, setBacklogSortDeveloperOrder] = useState("asc");
 
+  // errors for time inputs
+  const [estimatedTimeError, setEstimatedTimeError] = useState("");
+  const [completionTimeError, setCompletionTimeError] = useState("");
+
   /* ============================
-     Load sprints from MongoDB
+     Load sprints
   ============================ */
   useEffect(() => {
     const loadSprints = async () => {
@@ -47,7 +49,7 @@ const Sprint1TeamView = () => {
   }, []);
 
   /* ============================
-     Load sprint details + backlog when sprint changes
+     Load sprint details + items on sprint change
   ============================ */
   useEffect(() => {
     if (!currentSprint.name) {
@@ -63,10 +65,8 @@ const Sprint1TeamView = () => {
 
     const loadSprint = async () => {
       try {
-        // 1) Sprint details
-        const sprintRes = await api.get(
-          `/api/sprints/${encodeURIComponent(currentSprint.name)}`
-        );
+        // sprint details
+        const sprintRes = await api.get(`/api/sprints/${encodeURIComponent(currentSprint.name)}`);
 
         setCurrentSprint((prev) => ({
           ...prev,
@@ -75,19 +75,14 @@ const Sprint1TeamView = () => {
           progress: sprintRes.data?.progress || "Not Started",
         }));
 
-        // 2) Sprint items
+        // sprint items
         const res = await api.get(
           `/api/sprints/${encodeURIComponent(currentSprint.name)}/items`
         );
 
         const normalized = (res.data || []).map((it) => ({
+          ...it,
           id: it.clientId || it._id || it.id,
-          title: it.title,
-          priority: it.priority,
-          developer: it.developer,
-          status: it.status,
-          completed: it.completed,
-          sprint: it.sprintName,
           estimatedTime: it.estimatedTime || "",
           completionTime: it.completionTime || "",
           completionDate: it.completionDate || "",
@@ -95,7 +90,7 @@ const Sprint1TeamView = () => {
 
         setSprintBacklog(normalized);
       } catch (err) {
-        console.error("❌ Failed to load sprint:", err);
+        console.error("❌ Failed to load sprint data:", err);
         alert("Failed to load sprint data.");
       }
     };
@@ -110,48 +105,155 @@ const Sprint1TeamView = () => {
     setCurrentSprint((prev) => ({ ...prev, [field]: value }));
   };
 
-  // Team can update status (if you want read-only, tell me)
+  const validateTimeFormat = (time, isCompletion = false) => {
+    const ok = timeFormatRegex.test(time || "");
+    if (!ok) {
+      if (isCompletion) setCompletionTimeError("Invalid format! Use: 2w 4d 6h 45m");
+      else setEstimatedTimeError("Invalid format! Use: 2w 4d 6h 45m");
+      return false;
+    }
+    if (isCompletion) setCompletionTimeError("");
+    else setEstimatedTimeError("");
+    return true;
+  };
+
+  const updateBacklogItem = async (id, patch) => {
+    const res = await api.put(`/api/backlog/${encodeURIComponent(id)}`, patch);
+    return res.data;
+  };
+
+  /* ============================
+     Status Change (Team can change)
+  ============================ */
   const handleStatusChange = async (id, newStatus) => {
     try {
-      const payload = {
-        status: newStatus,
-        completed: newStatus === "Completed",
-      };
+      // If marking Completed -> ask completion date within sprint date range
+      if (newStatus === "Completed") {
+        if (!currentSprint.startDate || !currentSprint.endDate) {
+          alert("Sprint start/end dates must be set before completing tasks.");
+          return;
+        }
 
-      const res = await api.put(`/api/backlog/${encodeURIComponent(id)}`, payload);
+        const completionDate = prompt("Enter completion date (YYYY-MM-DD):");
+        if (!completionDate) {
+          alert("Completion date is required.");
+          return;
+        }
+
+        const date = new Date(completionDate);
+        const start = new Date(currentSprint.startDate);
+        const end = new Date(currentSprint.endDate);
+
+        if (Number.isNaN(date.getTime())) {
+          alert("Invalid date format.");
+          return;
+        }
+        if (date < start || date > end) {
+          alert("Completion date must be within the sprint start and end dates.");
+          return;
+        }
+
+        const updated = await updateBacklogItem(id, {
+          status: "Completed",
+          completed: true,
+          completionDate,
+        });
+
+        setSprintBacklog((prev) =>
+          prev.map((it) => (it.id === id ? { ...it, ...updated } : it))
+        );
+        return;
+      }
+
+      // moving away from Completed -> clear completion fields
+      const updated = await updateBacklogItem(id, {
+        status: newStatus,
+        completed: false,
+        completionDate: "",
+        completionTime: "",
+      });
 
       setSprintBacklog((prev) =>
-        prev.map((x) =>
-          x.id === id
-            ? { ...x, status: res.data.status, completed: res.data.completed }
-            : x
-        )
+        prev.map((it) => (it.id === id ? { ...it, ...updated } : it))
       );
     } catch (err) {
       console.error("❌ Status update failed:", err);
-      alert("Failed to update status");
+      alert("Failed to update status.");
     }
   };
 
-  // Refresh after ProductBacklogTeamView adds something
+  /* ============================
+     Editable time fields
+  ============================ */
+  const handleTimeChangeLocal = (id, field, value) => {
+    setSprintBacklog((prev) => prev.map((it) => (it.id === id ? { ...it, [field]: value } : it)));
+  };
+
+  const handleTimeSave = async (id, field, value) => {
+    try {
+      const isCompletion = field === "completionTime";
+      const ok = validateTimeFormat(value || "", isCompletion);
+      if (!ok) return;
+
+      const updated = await updateBacklogItem(id, { [field]: value });
+
+      setSprintBacklog((prev) =>
+        prev.map((it) => (it.id === id ? { ...it, ...updated } : it))
+      );
+    } catch (err) {
+      console.error("❌ Save time failed:", err);
+      alert("Failed to save time.");
+    }
+  };
+
+  const handleCompletionDateSave = async (id, completionDate) => {
+    try {
+      if (!currentSprint.startDate || !currentSprint.endDate) {
+        alert("Sprint start/end dates must be set first.");
+        return;
+      }
+
+      const date = new Date(completionDate);
+      const start = new Date(currentSprint.startDate);
+      const end = new Date(currentSprint.endDate);
+
+      if (Number.isNaN(date.getTime())) {
+        alert("Invalid date format.");
+        return;
+      }
+      if (date < start || date > end) {
+        alert("Completion date must be within the sprint start and end dates.");
+        return;
+      }
+
+      const updated = await updateBacklogItem(id, { completionDate });
+
+      setSprintBacklog((prev) =>
+        prev.map((it) => (it.id === id ? { ...it, ...updated } : it))
+      );
+    } catch (err) {
+      console.error("❌ Save completion date failed:", err);
+      alert("Failed to save completion date.");
+    }
+  };
+
+  /* ============================
+     Refresh after add from PB Team View
+  ============================ */
   const handleAddToSprintBacklog = async (_item, sprintName) => {
     if (!sprintName || sprintName !== currentSprint.name) return;
 
     try {
       const res = await api.get(`/api/sprints/${encodeURIComponent(sprintName)}/items`);
-      const normalized = (res.data || []).map((it) => ({
-        id: it.clientId || it._id || it.id,
-        title: it.title,
-        priority: it.priority,
-        developer: it.developer,
-        status: it.status,
-        completed: it.completed,
-        sprint: it.sprintName,
-        estimatedTime: it.estimatedTime || "",
-        completionTime: it.completionTime || "",
-        completionDate: it.completionDate || "",
-      }));
-      setSprintBacklog(normalized);
+      setSprintBacklog(
+        (res.data || []).map((it) => ({
+          ...it,
+          id: it.clientId || it._id || it.id,
+          estimatedTime: it.estimatedTime || "",
+          completionTime: it.completionTime || "",
+          completionDate: it.completionDate || "",
+        }))
+      );
     } catch (err) {
       console.error("❌ Refresh sprint items failed:", err);
     }
@@ -168,7 +270,6 @@ const Sprint1TeamView = () => {
         const B = (b.developer || "").toLowerCase();
         return backlogSortDeveloperOrder === "asc" ? A.localeCompare(B) : B.localeCompare(A);
       }
-
       const A = (a[backlogSortCriteria] || "").toString().toLowerCase();
       const B = (b[backlogSortCriteria] || "").toString().toLowerCase();
       return backlogSortOrder === "asc" ? A.localeCompare(B) : B.localeCompare(A);
@@ -183,16 +284,13 @@ const Sprint1TeamView = () => {
     <div className={`sprint-page theme-${theme}`}>
       <h1>Sprint – Team View</h1>
 
-      {/* Sprint Details (same layout idea as Scrum Master, but read-only) */}
+      {/* Sprint Details (read-only like SM but no save/delete) */}
       <div className="sprint-details">
         <div className="field-group">
           <label>Sprint Name:</label>
-          <select
-            value={currentSprint.name}
-            onChange={(e) => handleFieldChange("name", e.target.value)}
-          >
+          <select value={currentSprint.name} onChange={(e) => handleFieldChange("name", e.target.value)}>
             <option value="">Select Sprint</option>
-            {ALLOWED_SPRINT_NAMES.map((n) => (
+            {FIXED_SPRINT_NAME .map((n) => (
               <option key={n} value={n}>
                 {n}
               </option>
@@ -216,7 +314,7 @@ const Sprint1TeamView = () => {
         </div>
       </div>
 
-      {/* Sprint Backlog */}
+      {/* Backlog */}
       <div className="backlog-section">
         <h2>Sprint Backlog</h2>
 
@@ -258,8 +356,8 @@ const Sprint1TeamView = () => {
                   <th>Priority</th>
                   <th>Status</th>
                   <th>Developer</th>
-                  <th>Estimated</th>
-                  <th>Completion</th>
+                  <th>Estimated Time</th>
+                  <th>Completion Time</th>
                   <th>Completion Date</th>
                 </tr>
               </thead>
@@ -293,9 +391,68 @@ const Sprint1TeamView = () => {
                     </td>
 
                     <td>{item.developer}</td>
-                    <td>{item.estimatedTime || "-"}</td>
-                    <td>{item.completionTime || "-"}</td>
-                    <td>{item.status === "Completed" ? item.completionDate || "--" : "--"}</td>
+
+                    {/* Estimated Time (editable only when Awaiting Action) */}
+                    <td>
+                      {item.status === "Awaiting Action" ? (
+                        <>
+                          <input
+                            type="text"
+                            placeholder="2w 4d 6h 45m"
+                            value={item.estimatedTime || ""}
+                            onChange={(e) =>
+                              handleTimeChangeLocal(item.id, "estimatedTime", e.target.value)
+                            }
+                            onBlur={(e) => handleTimeSave(item.id, "estimatedTime", e.target.value)}
+                          />
+                          {estimatedTimeError && (
+                            <span className="error-message">{estimatedTimeError}</span>
+                          )}
+                        </>
+                      ) : (
+                        item.estimatedTime || "-"
+                      )}
+                    </td>
+
+                    {/* Completion Time (editable only when Completed) */}
+                    <td>
+                      {item.status === "Completed" ? (
+                        <>
+                          <input
+                            type="text"
+                            placeholder="2w 4d 6h 45m"
+                            value={item.completionTime || ""}
+                            onChange={(e) =>
+                              handleTimeChangeLocal(item.id, "completionTime", e.target.value)
+                            }
+                            onBlur={(e) =>
+                              handleTimeSave(item.id, "completionTime", e.target.value)
+                            }
+                          />
+                          {completionTimeError && (
+                            <span className="error-message">{completionTimeError}</span>
+                          )}
+                        </>
+                      ) : (
+                        item.completionTime || "-"
+                      )}
+                    </td>
+
+                    {/* Completion Date (editable only when Completed) */}
+                    <td>
+                      {item.status === "Completed" ? (
+                        <input
+                          type="date"
+                          value={item.completionDate || ""}
+                          onChange={(e) =>
+                            handleTimeChangeLocal(item.id, "completionDate", e.target.value)
+                          }
+                          onBlur={(e) => handleCompletionDateSave(item.id, e.target.value)}
+                        />
+                      ) : (
+                        "--"
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -304,7 +461,6 @@ const Sprint1TeamView = () => {
         )}
       </div>
 
-      {/* ProductBacklog Team View */}
       <ProductBacklog sprints={sprints} onAddToSprintBacklog={handleAddToSprintBacklog} />
     </div>
   );
