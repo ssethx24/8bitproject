@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useContext } from "react";
-import ProductBacklog from "./ProductBacklogTeamView";
+import ProductBacklogTeamView from "./ProductBacklogTeamView";
 import "./SprintPage.css";
 import { ThemeContext } from "../../contexts/theme-context";
 import { api } from "../../api";
@@ -12,15 +12,21 @@ const timeFormatRegex = /^(\d+w\s*)?(\d+d\s*)?(\d+h\s*)?(\d+m\s*)?$/;
 const Sprint1TeamView = () => {
   const { theme } = useContext(ThemeContext);
 
+  // list of CREATED sprints from DB (only those that exist)
   const [sprints, setSprints] = useState([]);
 
+  // this page is locked to Sprint 1
   const [currentSprint, setCurrentSprint] = useState({
-    name: "",
+    name: FIXED_SPRINT_NAME,
     startDate: "",
     endDate: "",
     progress: "Not Started",
   });
 
+  // whether Sprint 1 actually exists in DB
+  const [sprintExists, setSprintExists] = useState(false);
+
+  // backlog items for Sprint 1 only
   const [sprintBacklog, setSprintBacklog] = useState([]);
 
   // sorting
@@ -28,86 +34,11 @@ const Sprint1TeamView = () => {
   const [backlogSortOrder, setBacklogSortOrder] = useState("asc");
   const [backlogSortDeveloperOrder, setBacklogSortDeveloperOrder] = useState("asc");
 
-  // errors for time inputs
   const [estimatedTimeError, setEstimatedTimeError] = useState("");
   const [completionTimeError, setCompletionTimeError] = useState("");
 
-  /* ============================
-     Load sprints
-  ============================ */
-  useEffect(() => {
-    const loadSprints = async () => {
-      try {
-        const res = await api.get("/api/sprints");
-        setSprints(res.data || []);
-      } catch (err) {
-        console.error("❌ Failed to load sprints:", err);
-        alert("Failed to load sprints from server.");
-      }
-    };
-    loadSprints();
-  }, []);
-
-  /* ============================
-     Load sprint details + items on sprint change
-  ============================ */
-  useEffect(() => {
-    if (!currentSprint.name) {
-      setSprintBacklog([]);
-      setCurrentSprint((prev) => ({
-        ...prev,
-        startDate: "",
-        endDate: "",
-        progress: "Not Started",
-      }));
-      return;
-    }
-
-    const loadSprint = async () => {
-      try {
-        // sprint details
-        const sprintRes = await api.get(`/api/sprints/${encodeURIComponent(currentSprint.name)}`);
-
-        setCurrentSprint((prev) => ({
-          ...prev,
-          startDate: sprintRes.data?.startDate || "",
-          endDate: sprintRes.data?.endDate || "",
-          progress: sprintRes.data?.progress || "Not Started",
-        }));
-
-        // sprint items
-        const res = await api.get(
-          `/api/sprints/${encodeURIComponent(currentSprint.name)}/items`
-        );
-
-        const normalized = (res.data || []).map((it) => ({
-          ...it,
-          id: it.clientId || it._id || it.id,
-          estimatedTime: it.estimatedTime || "",
-          completionTime: it.completionTime || "",
-          completionDate: it.completionDate || "",
-        }));
-
-        setSprintBacklog(normalized);
-      } catch (err) {
-        console.error("❌ Failed to load sprint data:", err);
-        alert("Failed to load sprint data.");
-      }
-    };
-
-    loadSprint();
-  }, [currentSprint.name]);
-
-  /* ============================
-     Helpers
-  ============================ */
-  const handleFieldChange = (field, value) => {
-    setCurrentSprint((prev) => ({ ...prev, [field]: value }));
-  };
-
   const validateTimeFormat = (time, isCompletion = false) => {
-    const ok = timeFormatRegex.test(time || "");
-    if (!ok) {
+    if (!timeFormatRegex.test(time)) {
       if (isCompletion) setCompletionTimeError("Invalid format! Use: 2w 4d 6h 45m");
       else setEstimatedTimeError("Invalid format! Use: 2w 4d 6h 45m");
       return false;
@@ -117,28 +48,87 @@ const Sprint1TeamView = () => {
     return true;
   };
 
+  const fetchSprints = async () => {
+    const res = await api.get("/api/sprints");
+    setSprints(res.data || []);
+  };
+
+  // Load Sprint 1 details (if not found -> not created yet)
+  const fetchSprint1 = async () => {
+    try {
+      const res = await api.get(`/api/sprints/${encodeURIComponent(FIXED_SPRINT_NAME)}`);
+      setCurrentSprint({
+        name: FIXED_SPRINT_NAME,
+        startDate: res.data?.startDate || "",
+        endDate: res.data?.endDate || "",
+        progress: res.data?.progress || "Not Started",
+      });
+      setSprintExists(true);
+    } catch (err) {
+      if (err?.response?.status === 404) {
+        setSprintExists(false);
+        setCurrentSprint((p) => ({
+          ...p,
+          name: FIXED_SPRINT_NAME,
+          startDate: "",
+          endDate: "",
+          progress: "Not Started",
+        }));
+        setSprintBacklog([]);
+        return;
+      }
+      console.error("❌ Failed to load Sprint 1:", err);
+      alert("Failed to load Sprint 1 from server.");
+    }
+  };
+
+  const fetchSprint1Items = async () => {
+    if (!sprintExists) {
+      setSprintBacklog([]);
+      return;
+    }
+    const res = await api.get(`/api/sprints/${encodeURIComponent(FIXED_SPRINT_NAME)}/items`);
+    const normalized = (res.data || []).map((it) => ({
+      ...it,
+      id: it.clientId || it.id || it._id,
+      sprint: it.sprintName || FIXED_SPRINT_NAME,
+      estimatedTime: it.estimatedTime || "",
+      completionTime: it.completionTime || "",
+      completionDate: it.completionDate || "",
+    }));
+    setSprintBacklog(normalized);
+  };
+
+  useEffect(() => {
+    (async () => {
+      await fetchSprints();
+      await fetchSprint1();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      await fetchSprint1Items();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sprintExists]);
+
   const updateBacklogItem = async (id, patch) => {
     const res = await api.put(`/api/backlog/${encodeURIComponent(id)}`, patch);
     return res.data;
   };
 
-  /* ============================
-     Status Change (Team can change)
-  ============================ */
   const handleStatusChange = async (id, newStatus) => {
     try {
-      // If marking Completed -> ask completion date within sprint date range
       if (newStatus === "Completed") {
         if (!currentSprint.startDate || !currentSprint.endDate) {
-          alert("Sprint start/end dates must be set before completing tasks.");
+          alert("Set Sprint 1 start/end dates before completing tasks.");
           return;
         }
 
         const completionDate = prompt("Enter completion date (YYYY-MM-DD):");
-        if (!completionDate) {
-          alert("Completion date is required.");
-          return;
-        }
+        if (!completionDate) return;
 
         const date = new Date(completionDate);
         const start = new Date(currentSprint.startDate);
@@ -149,119 +139,76 @@ const Sprint1TeamView = () => {
           return;
         }
         if (date < start || date > end) {
-          alert("Completion date must be within the sprint start and end dates.");
+          alert("Completion date must be within sprint start/end.");
           return;
         }
 
-        const updated = await updateBacklogItem(id, {
+        await updateBacklogItem(id, {
           status: "Completed",
           completed: true,
           completionDate,
         });
-
-        setSprintBacklog((prev) =>
-          prev.map((it) => (it.id === id ? { ...it, ...updated } : it))
-        );
-        return;
+      } else {
+        await updateBacklogItem(id, {
+          status: newStatus,
+          completed: false,
+          completionDate: "",
+          completionTime: "",
+        });
       }
 
-      // moving away from Completed -> clear completion fields
-      const updated = await updateBacklogItem(id, {
-        status: newStatus,
-        completed: false,
-        completionDate: "",
-        completionTime: "",
-      });
-
-      setSprintBacklog((prev) =>
-        prev.map((it) => (it.id === id ? { ...it, ...updated } : it))
-      );
+      await fetchSprint1Items();
     } catch (err) {
       console.error("❌ Status update failed:", err);
       alert("Failed to update status.");
     }
   };
 
-  /* ============================
-     Editable time fields
-  ============================ */
   const handleTimeChangeLocal = (id, field, value) => {
     setSprintBacklog((prev) => prev.map((it) => (it.id === id ? { ...it, [field]: value } : it)));
   };
 
   const handleTimeSave = async (id, field, value) => {
     try {
-      const isCompletion = field === "completionTime";
-      const ok = validateTimeFormat(value || "", isCompletion);
+      const ok = validateTimeFormat(value || "", field === "completionTime");
       if (!ok) return;
 
-      const updated = await updateBacklogItem(id, { [field]: value });
-
-      setSprintBacklog((prev) =>
-        prev.map((it) => (it.id === id ? { ...it, ...updated } : it))
-      );
+      await updateBacklogItem(id, { [field]: value });
+      await fetchSprint1Items();
     } catch (err) {
       console.error("❌ Save time failed:", err);
       alert("Failed to save time.");
     }
   };
 
-  const handleCompletionDateSave = async (id, completionDate) => {
+  const handleCompletionDateSave = async (id, value) => {
     try {
       if (!currentSprint.startDate || !currentSprint.endDate) {
-        alert("Sprint start/end dates must be set first.");
+        alert("Set Sprint start/end dates first.");
         return;
       }
 
-      const date = new Date(completionDate);
+      const date = new Date(value);
       const start = new Date(currentSprint.startDate);
       const end = new Date(currentSprint.endDate);
 
       if (Number.isNaN(date.getTime())) {
-        alert("Invalid date format.");
+        alert("Invalid completion date.");
         return;
       }
       if (date < start || date > end) {
-        alert("Completion date must be within the sprint start and end dates.");
+        alert("Completion date must be within sprint start/end.");
         return;
       }
 
-      const updated = await updateBacklogItem(id, { completionDate });
-
-      setSprintBacklog((prev) =>
-        prev.map((it) => (it.id === id ? { ...it, ...updated } : it))
-      );
+      await updateBacklogItem(id, { completionDate: value });
+      await fetchSprint1Items();
     } catch (err) {
       console.error("❌ Save completion date failed:", err);
       alert("Failed to save completion date.");
     }
   };
 
-  /* ============================
-     Refresh after add from PB Team View
-  ============================ */
-  const handleAddToSprintBacklog = async (_item, sprintName) => {
-    if (!sprintName || sprintName !== currentSprint.name) return;
-
-    try {
-      const res = await api.get(`/api/sprints/${encodeURIComponent(sprintName)}/items`);
-      setSprintBacklog(
-        (res.data || []).map((it) => ({
-          ...it,
-          id: it.clientId || it._id || it.id,
-          estimatedTime: it.estimatedTime || "",
-          completionTime: it.completionTime || "",
-          completionDate: it.completionDate || "",
-        }))
-      );
-    } catch (err) {
-      console.error("❌ Refresh sprint items failed:", err);
-    }
-  };
-
-  /* ============================
-     Sorting
-  ============================ */
   const sortedSprintBacklog = useMemo(() => {
     const list = [...sprintBacklog];
     list.sort((a, b) => {
@@ -277,78 +224,73 @@ const Sprint1TeamView = () => {
     return list;
   }, [sprintBacklog, backlogSortCriteria, backlogSortOrder, backlogSortDeveloperOrder]);
 
-  /* ============================
-     Render
-  ============================ */
   return (
     <div className={`sprint-page theme-${theme}`}>
-      <h1>Sprint – Team View</h1>
+      <h1>{FIXED_SPRINT_NAME} – Team View</h1>
 
-      {/* Sprint Details (read-only like SM but no save/delete) */}
+      {/* Sprint Details (same UI as Scrum Master, but read-only for team) */}
       <div className="sprint-details">
         <div className="field-group">
-          <label>Sprint Name:</label>
-          <select value={currentSprint.name} onChange={(e) => handleFieldChange("name", e.target.value)}>
-            <option value="">Select Sprint</option>
-            {FIXED_SPRINT_NAME .map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
+          <label>Sprint Name: </label>
+          <input value={FIXED_SPRINT_NAME} disabled />
         </div>
 
         <div className="field-group">
-          <label>Start Date:</label>
+          <label>Start Date: </label>
           <input type="date" value={currentSprint.startDate || ""} disabled />
         </div>
 
         <div className="field-group">
-          <label>End Date:</label>
+          <label>End Date: </label>
           <input type="date" value={currentSprint.endDate || ""} disabled />
         </div>
 
         <div className="field-group">
-          <label>Progress:</label>
+          <label>Progress: </label>
           <input value={currentSprint.progress || "Not Started"} disabled />
         </div>
       </div>
 
-      {/* Backlog */}
-      <div className="backlog-section">
-        <h2>Sprint Backlog</h2>
-
-        <div className="sort-controls">
-          <label>Sort by:</label>
-          <select value={backlogSortCriteria} onChange={(e) => setBacklogSortCriteria(e.target.value)}>
-            <option value="title">Title</option>
-            <option value="priority">Priority</option>
-            <option value="status">Status</option>
-            <option value="developer">Developer</option>
-          </select>
-
-          <label>Order:</label>
-          <select value={backlogSortOrder} onChange={(e) => setBacklogSortOrder(e.target.value)}>
-            <option value="asc">Ascending</option>
-            <option value="desc">Descending</option>
-          </select>
-
-          <label>Developer Order:</label>
-          <select
-            value={backlogSortDeveloperOrder}
-            onChange={(e) => setBacklogSortDeveloperOrder(e.target.value)}
-          >
-            <option value="asc">Ascending</option>
-            <option value="desc">Descending</option>
-          </select>
+      {/* IMPORTANT: If sprint not created, block backlog + adding */}
+      {!sprintExists ? (
+        <div className="backlog-section">
+          <h2>Sprint Backlog</h2>
+          <p style={{ color: "crimson" }}>
+            Sprint 1 is not created yet. Please ask Scrum Master to create it first.
+          </p>
         </div>
+      ) : (
+        <div className="backlog-section">
+          <h2>Sprint Backlog for {FIXED_SPRINT_NAME}</h2>
 
-        {!currentSprint.name ? (
-          <p>Please select a sprint.</p>
-        ) : sortedSprintBacklog.length === 0 ? (
-          <p>No sprint items</p>
-        ) : (
-          <div className="table-scroll">
+          <div className="sort-controls">
+            <label>Sort by:</label>
+            <select value={backlogSortCriteria} onChange={(e) => setBacklogSortCriteria(e.target.value)}>
+              <option value="title">Title</option>
+              <option value="priority">Priority</option>
+              <option value="status">Status</option>
+              <option value="developer">Developer</option>
+            </select>
+
+            <label>Order:</label>
+            <select value={backlogSortOrder} onChange={(e) => setBacklogSortOrder(e.target.value)}>
+              <option value="asc">Ascending</option>
+              <option value="desc">Descending</option>
+            </select>
+
+            <label>Developer Order:</label>
+            <select
+              value={backlogSortDeveloperOrder}
+              onChange={(e) => setBacklogSortDeveloperOrder(e.target.value)}
+            >
+              <option value="asc">Ascending</option>
+              <option value="desc">Descending</option>
+            </select>
+          </div>
+
+          {sortedSprintBacklog.length === 0 ? (
+            <p>No items in Sprint 1 backlog</p>
+          ) : (
             <table className="backlog-table">
               <thead>
                 <tr>
@@ -392,7 +334,7 @@ const Sprint1TeamView = () => {
 
                     <td>{item.developer}</td>
 
-                    {/* Estimated Time (editable only when Awaiting Action) */}
+                    {/* Estimated Time editable only when Awaiting Action */}
                     <td>
                       {item.status === "Awaiting Action" ? (
                         <>
@@ -400,21 +342,17 @@ const Sprint1TeamView = () => {
                             type="text"
                             placeholder="2w 4d 6h 45m"
                             value={item.estimatedTime || ""}
-                            onChange={(e) =>
-                              handleTimeChangeLocal(item.id, "estimatedTime", e.target.value)
-                            }
+                            onChange={(e) => handleTimeChangeLocal(item.id, "estimatedTime", e.target.value)}
                             onBlur={(e) => handleTimeSave(item.id, "estimatedTime", e.target.value)}
                           />
-                          {estimatedTimeError && (
-                            <span className="error-message">{estimatedTimeError}</span>
-                          )}
+                          {estimatedTimeError && <span className="error-message">{estimatedTimeError}</span>}
                         </>
                       ) : (
-                        item.estimatedTime || "-"
+                        item.estimatedTime || "--"
                       )}
                     </td>
 
-                    {/* Completion Time (editable only when Completed) */}
+                    {/* Completion Time editable only when Completed */}
                     <td>
                       {item.status === "Completed" ? (
                         <>
@@ -422,31 +360,23 @@ const Sprint1TeamView = () => {
                             type="text"
                             placeholder="2w 4d 6h 45m"
                             value={item.completionTime || ""}
-                            onChange={(e) =>
-                              handleTimeChangeLocal(item.id, "completionTime", e.target.value)
-                            }
-                            onBlur={(e) =>
-                              handleTimeSave(item.id, "completionTime", e.target.value)
-                            }
+                            onChange={(e) => handleTimeChangeLocal(item.id, "completionTime", e.target.value)}
+                            onBlur={(e) => handleTimeSave(item.id, "completionTime", e.target.value)}
                           />
-                          {completionTimeError && (
-                            <span className="error-message">{completionTimeError}</span>
-                          )}
+                          {completionTimeError && <span className="error-message">{completionTimeError}</span>}
                         </>
                       ) : (
-                        item.completionTime || "-"
+                        item.completionTime || "--"
                       )}
                     </td>
 
-                    {/* Completion Date (editable only when Completed) */}
+                    {/* Completion Date editable only when Completed */}
                     <td>
                       {item.status === "Completed" ? (
                         <input
                           type="date"
                           value={item.completionDate || ""}
-                          onChange={(e) =>
-                            handleTimeChangeLocal(item.id, "completionDate", e.target.value)
-                          }
+                          onChange={(e) => handleTimeChangeLocal(item.id, "completionDate", e.target.value)}
                           onBlur={(e) => handleCompletionDateSave(item.id, e.target.value)}
                         />
                       ) : (
@@ -457,11 +387,20 @@ const Sprint1TeamView = () => {
                 ))}
               </tbody>
             </table>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
-      <ProductBacklog sprints={sprints} onAddToSprintBacklog={handleAddToSprintBacklog} />
+      {/* Team Product Backlog: still allow adding to Sprint backlog,
+          but sprint must exist (same rule as SM) */}
+      <ProductBacklogTeamView
+        sprints={sprints}
+        fixedSprintName={FIXED_SPRINT_NAME}
+        sprintExists={sprintExists}
+        onAddToSprintBacklog={async () => {
+          await fetchSprint1Items();
+        }}
+      />
     </div>
   );
 };
