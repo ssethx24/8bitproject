@@ -9,13 +9,13 @@ function HomePage() {
   const [sprints, setSprints] = useState([]);
   const [sprintItemsByName, setSprintItemsByName] = useState({});
   const [currentSprint, setCurrentSprint] = useState("Sprint 1");
-  const [loading, setLoading] = useState(true);
+//  const [loading, setLoading] = useState(true);
 
   // ✅ Load sprints + sprint backlog from MongoDB
   useEffect(() => {
     const load = async () => {
       try {
-        setLoading(true);
+//        setLoading(true);
 
         // 1) Load all sprints
         const sprintsRes = await api.get("/api/sprints");
@@ -53,8 +53,8 @@ function HomePage() {
       } catch (err) {
         console.error("❌ Failed to load Home data:", err);
         alert("Failed to load sprint data from server.");
-      } finally {
-        setLoading(false);
+//      } finally {
+//        setLoading(false);
       }
     };
 
@@ -80,9 +80,9 @@ function HomePage() {
     return sprint.progress || "Not Started";
   };
 
-  if (loading) {
-    return <div className={`homepage-container theme-${theme}`}>Loading...</div>;
-  }
+//  if (loading) {
+//    return <div className={`homepage-container theme-${theme}`}>Loading...</div>;
+//  }
 
   return (
     <div className={`homepage-container theme-${theme}`}>
