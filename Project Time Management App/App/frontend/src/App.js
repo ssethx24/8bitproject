@@ -52,7 +52,7 @@ function App() {
 
   // Prevent route flicker while auth is loading
   if (loading) {
-    return <div style={{ padding: 20 }}>Loading...</div>;
+    return null;
   }
 
   return (
