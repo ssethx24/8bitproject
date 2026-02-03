@@ -8,7 +8,8 @@ import './Navbar.css';
  * @description This component renders a responsive navigation bar for the web application. 
  * It includes links to various sections such as Home, Product Backlog, and Sprints, 
  * and conditionally displays an "Admin View" link for users with the 'scrum-master' role. 
- * The component also manages user authentication state, handles the logout process, 
+ * The component also manages user aut4/*-31`q234580-q +
+ hentication state, handles the logout process,
  * and adjusts the layout for mobile screens.
  * 
  * @component

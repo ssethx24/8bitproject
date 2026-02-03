@@ -1,42 +1,85 @@
 // src/App.js
 
-import './App.css';
-import Navbar from './components/Navbar';
+import "./App.css";
+import Navbar from "./components/Navbar";
 import {
   HashRouter as Router,
   Route,
   Routes,
-  Navigate
-} from 'react-router-dom';
+  Navigate,
+} from "react-router-dom";
 
-import Home from './components/pages/Home';
-import ProductBacklog from './components/pages/ProductBacklog';
-import ProductBacklogTeamView from './components/pages/ProductBacklogTeamView';
-import Sprint1 from './components/pages/Sprint1';
-import Sprint2 from './components/pages/Sprint2';
-import Sprint3 from './components/pages/Sprint3';
-import Sprint1TeamView from './components/pages/Sprint1TeamView';
-import Sprint2TeamView from './components/pages/Sprint2TeamView';
-import Sprint3TeamView from './components/pages/Sprint3TeamView';
-import Charts from './components/pages/Charts';
-import Login from './components/Login';
-import AdminView from './components/pages/AdminView';
+import Home from "./components/pages/Home";
+import ProductBacklog from "./components/pages/ProductBacklog";
+import ProductBacklogTeamView from "./components/pages/ProductBacklogTeamView";
+import Sprint1 from "./components/pages/Sprint1";
+import Sprint2 from "./components/pages/Sprint2";
+import Sprint3 from "./components/pages/Sprint3";
+import Sprint1TeamView from "./components/pages/Sprint1TeamView";
+import Sprint2TeamView from "./components/pages/Sprint2TeamView";
+import Sprint3TeamView from "./components/pages/Sprint3TeamView";
+import Charts from "./components/pages/Charts";
+import Login from "./components/Login";
+import AdminView from "./components/pages/AdminView";
 
-import { useEffect, useState } from 'react';
-import { ThemeProvider } from './contexts/theme-context';
-import Header from './components/Header';
+import { useEffect, useState } from "react";
+import { ThemeProvider } from "./contexts/theme-context";
+import Header from "./components/Header";
+import { api } from "./api";
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [role, setUserRole] = useState('');
+  const [role, setUserRole] = useState("");
+//  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const authStatus = localStorage.getItem('authenticated');
-    setIsAuthenticated(authStatus === 'true');
+  // ✅ Check auth from backend (NOT localStorage)
+//  useEffect(() => {
+//    const checkAuth = async () => {
+//      try {
+//        const res = await api.get("/api/me");
+//        setIsAuthenticated(true);
+//        setUserRole(res.data.user.role);
+//      } catch (err) {
+//        setIsAuthenticated(false);
+//        setUserRole("");
+////      } finally {
+////        setLoading(false);
+////      }
+//    };
 
-    const userRole = localStorage.getItem('role');
-    setUserRole(userRole || '');
-  }, []);
+     useEffect(() => {
+       const checkAuth = async () => {
+        const token = localStorage.getItem("token");
+
+    // If no token, instantly be logged out (no flicker)
+    if (!token) {
+      setIsAuthenticated(false);
+      setUserRole("");
+      return;
+    }
+
+    try {
+      const res = await api.get("/api/me");
+      setIsAuthenticated(true);
+      setUserRole(res.data.user.role);
+      localStorage.setItem("role", res.data.user.role);
+    } catch (err) {
+      // token invalid → logout cleanly
+      localStorage.removeItem("token");
+      localStorage.removeItem("role");
+      setIsAuthenticated(false);
+      setUserRole("");
+    }
+  };
+
+  checkAuth();
+}, []);
+
+
+//  // Prevent route flicker while auth is loading
+//  if (loading) {
+//    return null;
+//  }
 
   return (
     <ThemeProvider>
@@ -73,9 +116,9 @@ function App() {
             path="/productbacklog"
             element={
               isAuthenticated ? (
-                role === 'team-member' ? (
+                role === "team-member" ? (
                   <ProductBacklogTeamView />
-                ) : role === 'scrum-master' ? (
+                ) : role === "scrum-master" ? (
                   <ProductBacklog />
                 ) : (
                   <Navigate to="/login" />
@@ -91,9 +134,9 @@ function App() {
             path="/sprint1"
             element={
               isAuthenticated ? (
-                role === 'team-member' ? (
+                role === "team-member" ? (
                   <Sprint1TeamView />
-                ) : role === 'scrum-master' ? (
+                ) : role === "scrum-master" ? (
                   <Sprint1 />
                 ) : (
                   <Navigate to="/login" />
@@ -109,9 +152,9 @@ function App() {
             path="/sprint2"
             element={
               isAuthenticated ? (
-                role === 'team-member' ? (
+                role === "team-member" ? (
                   <Sprint2TeamView />
-                ) : role === 'scrum-master' ? (
+                ) : role === "scrum-master" ? (
                   <Sprint2 />
                 ) : (
                   <Navigate to="/login" />
@@ -127,9 +170,9 @@ function App() {
             path="/sprint3"
             element={
               isAuthenticated ? (
-                role === 'team-member' ? (
+                role === "team-member" ? (
                   <Sprint3TeamView />
-                ) : role === 'scrum-master' ? (
+                ) : role === "scrum-master" ? (
                   <Sprint3 />
                 ) : (
                   <Navigate to="/login" />
@@ -150,7 +193,7 @@ function App() {
           <Route
             path="/adminview"
             element={
-              isAuthenticated && role === 'scrum-master' ? (
+              isAuthenticated && role === "scrum-master" ? (
                 <AdminView />
               ) : (
                 <Navigate to="/login" />
