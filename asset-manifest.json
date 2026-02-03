@@ -1,15 +1,15 @@
 {
   "files": {
-    "main.css": "/8bitproject/static/css/main.5cfaecfe.css",
+    "main.css": "/8bitproject/static/css/main.ca40cabc.css",
     "main.js": "/8bitproject/static/js/main.85abedff.js",
     "static/js/453.7d05ed1a.chunk.js": "/8bitproject/static/js/453.7d05ed1a.chunk.js",
     "index.html": "/8bitproject/index.html",
-    "main.5cfaecfe.css.map": "/8bitproject/static/css/main.5cfaecfe.css.map",
+    "main.ca40cabc.css.map": "/8bitproject/static/css/main.ca40cabc.css.map",
     "main.85abedff.js.map": "/8bitproject/static/js/main.85abedff.js.map",
     "453.7d05ed1a.chunk.js.map": "/8bitproject/static/js/453.7d05ed1a.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.5cfaecfe.css",
+    "static/css/main.ca40cabc.css",
     "static/js/main.85abedff.js"
   ]
 }
