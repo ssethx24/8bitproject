@@ -30,30 +30,56 @@ import { api } from "./api";
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [role, setUserRole] = useState("");
-  const [loading, setLoading] = useState(true);
+//  const [loading, setLoading] = useState(true);
 
   // ✅ Check auth from backend (NOT localStorage)
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const res = await api.get("/api/me");
-        setIsAuthenticated(true);
-        setUserRole(res.data.user.role);
-      } catch (err) {
-        setIsAuthenticated(false);
-        setUserRole("");
-      } finally {
-        setLoading(false);
-      }
-    };
+//  useEffect(() => {
+//    const checkAuth = async () => {
+//      try {
+//        const res = await api.get("/api/me");
+//        setIsAuthenticated(true);
+//        setUserRole(res.data.user.role);
+//      } catch (err) {
+//        setIsAuthenticated(false);
+//        setUserRole("");
+////      } finally {
+////        setLoading(false);
+////      }
+//    };
 
-    checkAuth();
-  }, []);
+     useEffect(() => {
+       const checkAuth = async () => {
+        const token = localStorage.getItem("token");
 
-  // Prevent route flicker while auth is loading
-  if (loading) {
-    return null;
-  }
+    // If no token, instantly be logged out (no flicker)
+    if (!token) {
+      setIsAuthenticated(false);
+      setUserRole("");
+      return;
+    }
+
+    try {
+      const res = await api.get("/api/me");
+      setIsAuthenticated(true);
+      setUserRole(res.data.user.role);
+      localStorage.setItem("role", res.data.user.role);
+    } catch (err) {
+      // token invalid → logout cleanly
+      localStorage.removeItem("token");
+      localStorage.removeItem("role");
+      setIsAuthenticated(false);
+      setUserRole("");
+    }
+  };
+
+  checkAuth();
+}, []);
+
+
+//  // Prevent route flicker while auth is loading
+//  if (loading) {
+//    return null;
+//  }
 
   return (
     <ThemeProvider>
